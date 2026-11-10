@@ -1,0 +1,8 @@
+flowchart LR
+    INGEST[Ingestion: provenance / durable write / selected-store receipts] -->|background refresh| META[Ordinary collection metadata cache]
+    USER[Question + selected collections + chosen VDB] --> SEARCH[Vector search using cached collection metadata]
+    META --> SEARCH
+    SEARCH --> GLOBAL[Global top 10 across selected collections]
+    GLOBAL --> RERANK[Rerank once / retain best 5]
+    RERANK --> LLM[Grounded LLM answer]
+    LLM --> STREAM[Stream text and linked sources to GUI]

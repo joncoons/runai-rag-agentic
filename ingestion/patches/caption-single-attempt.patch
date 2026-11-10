@@ -1,0 +1,5 @@
+--- a/nemo_retriever/operators/extract/caption/caption.py
++++ b/nemo_retriever/operators/extract/caption/caption.py
+@@ -230,0 +231,2 @@
++        max_retries=1,
++        timeout=60.0,

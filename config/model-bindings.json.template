@@ -1,0 +1,53 @@
+{
+  "models": {
+    "embed": {
+      "endpoint": "${EMBED_ENDPOINT}",
+      "model": "nvidia/Nemotron-3.5-Embed-1B-NVFP4",
+      "precision": "nvfp4"
+    },
+    "rerank": {
+      "endpoint": "${RERANK_ENDPOINT}",
+      "model": "nvidia/Nemotron-3.5-Rerank-8B-BF16",
+      "role": "query_time_not_ingestion_fused_graph"
+    },
+    "page_elements": {
+      "endpoint": "${PAGE_ELEMENTS_ENDPOINT}",
+      "model": "nvidia/nemotron-page-elements-v3"
+    },
+    "table_structure": {
+      "endpoint": "${TABLE_STRUCTURE_ENDPOINT}",
+      "model": "nvidia/nemotron-table-structure-v1"
+    },
+    "ocr": {
+      "endpoint": "${OCR_ENDPOINT}",
+      "model": "nvidia/nemotron-ocr-v2"
+    },
+    "parse": {
+      "endpoint": "${PARSE_ENDPOINT}",
+      "model": "nvidia/nemotron-3.5-parse",
+      "request_contract": "multipart_document_not_JSON_infer",
+      "native_pdf_layout_path_enabled": false
+    },
+    "caption": {
+      "endpoint": "${CAPTION_ENDPOINT}",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "caption_infographics": true,
+      "preserve_ocr_separately": true
+    }
+  },
+  "embedding_contract": {
+    "dimensions": 2048,
+    "dtype": "float32",
+    "checkpoint_content_manifest_sha256": "${EMBED_CHECKPOINT_SHA256}"
+  },
+  "input_truncation_policy": {
+    "enabled": false,
+    "embedding_request_truncate": "NONE",
+    "reranking_request_truncate": "NONE",
+    "tokenizer_truncation": false,
+    "tokenizer_padding_for_admission": false,
+    "overlength": "explicit_error_no_implicit_split",
+    "splitting": "explicit_versioned_provenance_preserving_transform_only",
+    "server_defaults_must_not_be_relied_on": true
+  }
+}

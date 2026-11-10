@@ -1,0 +1,10 @@
+--- a/nemo_retriever/models/inference/main_text_embed.py
++++ b/nemo_retriever/models/inference/main_text_embed.py
+@@ -347,6 +347,7 @@
+         "encoding_format": encoding_format,
+         "input_type": str(input_type),
+         "truncate": str(truncate),
++        "modality": "text",
+     }
+     if dimensions is not None:
+         payload["dimensions"] = int(dimensions)

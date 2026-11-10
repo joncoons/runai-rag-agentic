@@ -1,0 +1,16 @@
+{
+  "version": "157.0.8103.38",
+  "revision": "1717349",
+  "artifacts": [
+    {
+      "platform": "linux64",
+      "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.38/linux64/chrome-linux64.zip",
+      "sha256": "8cdeb344e9b2cefe59f4aea8d1d93d5d93054c03cde217665c16fc1f62e72a66"
+    },
+    {
+      "platform": "linux64",
+      "url": "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.38/linux64/chromedriver-linux64.zip",
+      "sha256": "329525fa0bf02be19794de1e9475772ef64695e0456f142888bd70df3147dc1e"
+    }
+  ]
+}

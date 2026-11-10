@@ -1,0 +1,56 @@
+{
+  "canonicalization": "UTF-8 JSON sorted keys compact separators",
+  "extraction_model_contract": {
+    "page-elements": {
+      "model": "nvidia/nemotron-page-elements-v3",
+      "checkpoint_manifest_sha256": "${PAGE_ELEMENTS_CHECKPOINT_MANIFEST_SHA256}",
+      "platform_image_digest": "${PAGE_ELEMENTS_PLATFORM_IMAGE_DIGEST}"
+    },
+    "table-structure": {
+      "model": "nvidia/nemotron-table-structure-v1",
+      "checkpoint_manifest_sha256": "${TABLE_STRUCTURE_CHECKPOINT_MANIFEST_SHA256}",
+      "platform_image_digest": "${TABLE_STRUCTURE_PLATFORM_IMAGE_DIGEST}"
+    },
+    "ocr": {
+      "model": "nvidia/nemotron-ocr-v2",
+      "checkpoint_manifest_sha256": "${OCR_CHECKPOINT_MANIFEST_SHA256}",
+      "platform_image_digest": "${OCR_PLATFORM_IMAGE_DIGEST}"
+    },
+    "graphic-elements": {
+      "model": "nvidia/nemotron-graphic-elements-v1",
+      "checkpoint_manifest_sha256": "${GRAPHIC_ELEMENTS_CHECKPOINT_MANIFEST_SHA256}",
+      "platform_image_digest": "${GRAPHIC_ELEMENTS_PLATFORM_IMAGE_DIGEST}"
+    }
+  },
+  "extraction_model_contract_sha256": "${EXTRACTION_MODEL_CONTRACT_SHA256}",
+  "ocr_model_digest": "${OCR_MODEL_DIGEST}",
+  "caption_model_contract": {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "checkpoint_manifest_sha256": "${CHECKPOINT_MANIFEST_SHA256}",
+    "profile": "${PROFILE}",
+    "platform_image_digest": "${PLATFORM_IMAGE_DIGEST}",
+    "served_index_digest": "${SERVED_INDEX_DIGEST}"
+  },
+  "caption_model_digest": "${CAPTION_MODEL_DIGEST}",
+  "embedding_model_digest": "${EMBEDDING_MODEL_DIGEST}",
+  "embedding_config": {
+    "model": "nvidia/Nemotron-3.5-Embed-1B-NVFP4",
+    "checkpoint": "${CHECKPOINT}",
+    "dimensions": 2048,
+    "modality": "text",
+    "input_type": "passage",
+    "truncate": "NONE",
+    "library": "26.8.2"
+  },
+  "embedding_config_digest": "${EMBEDDING_CONFIG_DIGEST}",
+  "index_config": {
+    "dimensions": 2048,
+    "dtype": "float32",
+    "normalization": "unit",
+    "metric": "IP",
+    "schema_version": 1,
+    "embedding_checkpoint_sha256": "${EMBEDDING_CHECKPOINT_SHA256}"
+  },
+  "caption_config_digest_policy": "Native CaptionParams model_dump canonical hash is saved per immutable image manifest; never replace it with the broader served-model contract hash.",
+  "index_config_digest": "${INDEX_CONFIG_DIGEST}"
+}

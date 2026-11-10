@@ -1,0 +1,7 @@
+.git
+local
+rendered
+artifacts
+downloads
+**/__pycache__
+.pytest_cache

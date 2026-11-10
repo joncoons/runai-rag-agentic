@@ -1,0 +1,86 @@
+{
+  "name": "rag-model-page-elements",
+  "projectId": "${RUNAI_PROJECT_ID}",
+  "clusterId": "${RUNAI_CLUSTER_ID}",
+  "spec": {
+    "image": "nvcr.io/nim/nvidia/nemotron-object-detection:latest",
+    "imagePullPolicy": "Always",
+    "createHomeDir": false,
+    "compute": {
+      "cpuCoreRequest": 1,
+      "cpuMemoryRequest": "8Gi",
+      "gpuDevicesRequest": 1,
+      "gpuRequestType": "portion",
+      "gpuPortionRequest": 0.25
+    },
+    "environmentVariables": [
+      {
+        "name": "NIM_ENGINE_MODEL_NAME",
+        "value": "nvidia/nemotron-page-elements-v3"
+      },
+      {
+        "name": "NIM_ENGINE_MODEL_PATH",
+        "value": "/model/page-elements"
+      },
+      {
+        "name": "NIM_ENGINE_COUNT",
+        "value": "1"
+      },
+      {
+        "name": "NIM_PIPELINE_MAX_BATCH_SIZE",
+        "value": "1"
+      },
+      {
+        "name": "NIM_PERFORMANCE_MODE",
+        "value": "0"
+      },
+      {
+        "name": "NIM_ENGINE_PRECOMPILE_CACHE_DIR",
+        "value": "/opt/cache"
+      },
+      {
+        "name": "LOG_FORMAT",
+        "value": "json"
+      },
+      {
+        "name": "RUST_LOG",
+        "value": "info"
+      },
+      {
+        "name": "NIM_ENGINE_PRECISION",
+        "value": "fp16"
+      }
+    ],
+    "storage": {
+      "pvc": [
+        {
+          "name": "checkpoint",
+          "claimName": "${MODEL_CHECKPOINT_PVC}",
+          "existingPvc": true,
+          "ephemeral": false,
+          "readOnly": true,
+          "path": "/model"
+        },
+        {
+          "name": "runtime-cache",
+          "claimName": "${MODEL_CACHE_PVC}",
+          "existingPvc": true,
+          "ephemeral": false,
+          "readOnly": false,
+          "path": "/opt/cache",
+          "subPath": "${GPU_CACHE_SUBPATH}"
+        }
+      ],
+      "emptyDirVolume": [
+        {
+          "name": "shm",
+          "path": "/dev/shm",
+          "sizeLimit": "8Gi",
+          "medium": "Memory"
+        }
+      ]
+    },
+    "restartPolicy": "Always",
+    "preemptibility": "non-preemptible"
+  }
+}

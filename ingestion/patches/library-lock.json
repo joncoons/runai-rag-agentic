@@ -1,0 +1,23 @@
+[
+  {
+    "file": "models/inference/runtime.py",
+    "before_sha256": "e402a046e0c88d0530a13c96ce4b16eab7197b74913c4518231fecb9abe74cf1",
+    "after_sha256": "c4dd4ecdbb5dfc5e69e684ee0ac437dc6c6f50df4dc8edba9a86aeca24a504dd",
+    "input_truncation": "NONE_for_all_qualified_runtime_routes",
+    "patch": "remote-dimensions.patch"
+  },
+  {
+    "file": "models/inference/main_text_embed.py",
+    "before_sha256": "7b147a63fc960bb5db74d46ed59777952277bf9fe17c00c99202b3f1f0ee49f6",
+    "after_sha256": "0c88cee5cbc506a91ab0633b196fd25594e782a6275f1ef449c88646c5fd4650",
+    "scope": "explicit_text_default_in_text_HTTP_route; explicit_multimodal_override_preserved",
+    "patch": "remote-text-modality.patch"
+  },
+  {
+    "file": "operators/extract/caption/caption.py",
+    "before_sha256": "31bffc608711580d0c3105fb84d46022c8bc0d021b1c4625746bdd3f51c567c3",
+    "after_sha256": "9b5f0c9c2aafc217a04fe936f88d089e87ddd493d02a23c844b1d832286a325d",
+    "patch": "caption-single-attempt.patch",
+    "scope": "exactly_one_HTTP_attempt_per_persisted_caption_attempt"
+  }
+]

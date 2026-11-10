@@ -1,0 +1,39 @@
+flowchart TD
+    API[Collection create / duplicate / upsert / delete]
+    PG[(Existing PostgreSQL database<br/>collection_control schema)]
+    OUT[Transactional domain outbox]
+    WORK[Renewable lease and fenced attempt<br/>immutable content-addressed record versions]
+    ES[Persistent Elasticsearch projection<br/>incremental verified versions]
+    MV[Persistent Milvus native TEXT / vector / metadata<br/>incremental verified versions]
+    CHECK[Validate new versions and per-store receipts]
+    PUB[Atomic PostgreSQL authorized-version manifest]
+    READ[Query / MCP filter published versions BEFORE top-k<br/>revalidate before evidence release]
+    STAGE[Local EMBEDDING stage and attempt commit]
+    ADMIT[Retained bytes and complete source-unit coverage<br/>upstream IDs and per-record stage proof]
+    HTTP[HTTP first acquisition] --> JS{Sparse / empty main?}
+    JS -->|yes| BROWSER[Original Selenium fallback and readiness wait]
+    JS -->|no| RAW[Retained observation bytes and hashes]
+    BROWSER --> RAW
+    RAW --> UNITS[Versioned main-page and audience-disclosure units]
+    UNITS --> STAGE
+    STAGE --> ADMIT
+    ADMIT -->|same PostgreSQL transaction| PG
+    API --> PG
+    PG --> OUT
+    OUT --> WORK
+    WORK --> ES
+    WORK --> MV
+    ES --> CHECK
+    MV --> CHECK
+    CHECK --> RECHECK[Revalidate source / job / stage / intake proof<br/>hold source share locks through publication]
+    RECHECK --> PUB
+    PUB --> PG
+    READ --> PG
+    READ --> ES
+    READ --> MV
+    REJECT[Permanent admission rejection<br/>cancel intent, preserve prior publication]
+    DELETE[Logical deletion denial barrier<br/>fence work, retain versions for governed cleanup]
+    WORK -->|admission fails| REJECT
+    REJECT --> PG
+    API -->|delete| DELETE
+    DELETE --> PG

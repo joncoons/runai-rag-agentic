@@ -1,0 +1,95 @@
+{
+  "name": "rag-model-caption",
+  "projectId": "${RUNAI_PROJECT_ID}",
+  "clusterId": "${RUNAI_CLUSTER_ID}",
+  "spec": {
+    "image": "nvcr.io/nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:latest",
+    "imagePullPolicy": "Always",
+    "createHomeDir": false,
+    "compute": {
+      "cpuCoreRequest": 1,
+      "cpuMemoryRequest": "8Gi",
+      "gpuDevicesRequest": 1,
+      "gpuRequestType": "portion",
+      "gpuPortionRequest": 0.25
+    },
+    "environmentVariables": [
+      {
+        "name": "NIM_MODEL_PROFILE",
+        "value": "${MODEL_PROFILE}"
+      },
+      {
+        "name": "NIM_SERVED_MODEL_NAME",
+        "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+      },
+      {
+        "name": "NIM_CACHE_PATH",
+        "value": "/opt/nim/.cache"
+      },
+      {
+        "name": "NIM_WRITABLE_ROOT",
+        "value": "/opt/cache"
+      },
+      {
+        "name": "NIM_LOG_LEVEL",
+        "value": "INFO"
+      },
+      {
+        "name": "NIM_MAX_MODEL_LEN",
+        "value": "8192"
+      },
+      {
+        "name": "CUDA_CACHE_PATH",
+        "value": "/opt/cache/cuda"
+      },
+      {
+        "name": "TRITON_CACHE_DIR",
+        "value": "/opt/cache/triton"
+      },
+      {
+        "name": "TORCHINDUCTOR_CACHE_DIR",
+        "value": "/opt/cache/torchinductor"
+      },
+      {
+        "name": "VLLM_CACHE_ROOT",
+        "value": "/opt/cache/vllm"
+      },
+      {
+        "name": "PYTHONDONTWRITEBYTECODE",
+        "value": "1"
+      }
+    ],
+    "storage": {
+      "pvc": [
+        {
+          "name": "checkpoint",
+          "claimName": "${MODEL_CHECKPOINT_PVC}",
+          "existingPvc": true,
+          "ephemeral": false,
+          "readOnly": false,
+          "path": "/opt/nim/.cache"
+        },
+        {
+          "name": "runtime-cache",
+          "claimName": "${MODEL_CACHE_PVC}",
+          "existingPvc": true,
+          "ephemeral": false,
+          "readOnly": false,
+          "path": "/opt/cache",
+          "subPath": "${GPU_CACHE_SUBPATH}"
+        }
+      ],
+      "emptyDirVolume": [
+        {
+          "name": "shm",
+          "path": "/dev/shm",
+          "sizeLimit": "8Gi",
+          "medium": "Memory"
+        }
+      ]
+    },
+    "restartPolicy": "Always",
+    "preemptibility": "non-preemptible",
+    "args": "--max-num-seqs 1 --gpu-memory-utilization 0.85 --max-model-len 8192"
+  }
+}

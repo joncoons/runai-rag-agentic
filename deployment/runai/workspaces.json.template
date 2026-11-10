@@ -1,0 +1,3715 @@
+{
+  "api": {
+    "name": "rag-agentic-api",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.api",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "LOCAL_ADMIN_CONFIG_FILE",
+          "value": "/etc/rag-agentic-admin/config.json"
+        },
+        {
+          "name": "LOCATION_REGISTRY_DATABASE",
+          "value": "true"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "approved-source",
+            "claimName": "${SOURCE_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/source-roots/approved"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          },
+          {
+            "name": "local-admin",
+            "secret": "${ADMIN_SECRET}",
+            "mountPath": "/etc/rag-agentic-admin"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "api"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/api/status",
+              "port": 8080,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "relay": {
+    "name": "rag-agentic-relay",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "relay"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "relay"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "admission": {
+    "name": "rag-agentic-admission",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "admission"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "admission"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "writer": {
+    "name": "rag-agentic-writer",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_WRITER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_WRITER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "writer"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "writer"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "foreground": {
+    "name": "rag-agentic-foreground",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m nv_ingest_durable.pipeline_worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 2,
+        "cpuCoreLimit": 4,
+        "cpuMemoryRequest": "2Gi",
+        "cpuMemoryLimit": "8Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts/stages"
+        },
+        {
+          "name": "PAGE_ELEMENTS_URL",
+          "value": "${PAGE_ELEMENTS_URL}"
+        },
+        {
+          "name": "TABLE_STRUCTURE_URL",
+          "value": "${TABLE_STRUCTURE_URL}"
+        },
+        {
+          "name": "OCR_URL",
+          "value": "${OCR_URL}"
+        },
+        {
+          "name": "GRAPHIC_ELEMENTS_URL",
+          "value": "${GRAPHIC_ELEMENTS_URL}"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "INDEX_MODEL_DIGEST",
+          "value": "${INDEX_MODEL_DIGEST}"
+        },
+        {
+          "name": "INDEX_CONFIG_DIGEST",
+          "value": "${INDEX_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "EXTRACTION_BATCH_SIZE",
+          "value": "2"
+        },
+        {
+          "name": "EXTRACTION_DPI",
+          "value": "200"
+        },
+        {
+          "name": "EXTRACT_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_CHARTS",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "STAGE_WORKER_ROLE",
+          "value": "fused"
+        },
+        {
+          "name": "STAGE_WORKER_STREAM",
+          "value": "rag.agentic.extraction.pending"
+        },
+        {
+          "name": "STAGE_WORKER_GROUP",
+          "value": "rag-agentic-fused-v1"
+        },
+        {
+          "name": "STAGE_WORKER_CONCURRENCY",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_READ_COUNT",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_MICROBATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_RECLAIM_IDLE_MS",
+          "value": "30000"
+        },
+        {
+          "name": "STAGE_WORKER_LEASE_SECONDS",
+          "value": "600"
+        },
+        {
+          "name": "STAGE_WORKER_HEARTBEAT_SECONDS",
+          "value": "30"
+        },
+        {
+          "name": "CAPTION_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_EXTRA_BODY",
+          "value": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+        },
+        {
+          "name": "PDF_EXTRACTION_REUSE",
+          "value": "true"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "foreground"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8083,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "caption": {
+    "name": "rag-agentic-caption",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m nv_ingest_durable.caption_worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts/stages"
+        },
+        {
+          "name": "PAGE_ELEMENTS_URL",
+          "value": "${PAGE_ELEMENTS_URL}"
+        },
+        {
+          "name": "TABLE_STRUCTURE_URL",
+          "value": "${TABLE_STRUCTURE_URL}"
+        },
+        {
+          "name": "OCR_URL",
+          "value": "${OCR_URL}"
+        },
+        {
+          "name": "GRAPHIC_ELEMENTS_URL",
+          "value": "${GRAPHIC_ELEMENTS_URL}"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "INDEX_MODEL_DIGEST",
+          "value": "${INDEX_MODEL_DIGEST}"
+        },
+        {
+          "name": "INDEX_CONFIG_DIGEST",
+          "value": "${INDEX_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "EXTRACTION_BATCH_SIZE",
+          "value": "2"
+        },
+        {
+          "name": "EXTRACTION_DPI",
+          "value": "200"
+        },
+        {
+          "name": "EXTRACT_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_CHARTS",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_EXTRA_BODY",
+          "value": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "caption"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8084,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "query-mcp": {
+    "name": "rag-agentic-query-mcp",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.mcp_service",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "QUERY_MCP_HOST",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "QUERY_MCP_PORT",
+          "value": "8011"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ],
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/artifacts"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "query-mcp"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30
+    }
+  },
+  "migration": {
+    "name": "rag-agentic-migration",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.migrate",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "migration"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "migration"
+        }
+      ],
+      "restartPolicy": "Never",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "autoDeletionTimeAfterCompletionSeconds": 3600,
+      "backoffLimit": 0,
+      "storage": {
+        "pvc": [
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ]
+      }
+    }
+  },
+  "refresh": {
+    "name": "rag-agentic-refresh",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "refresh"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "LOCATION_REGISTRY_DATABASE",
+          "value": "true"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "approved-source",
+            "claimName": "${SOURCE_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/source-roots/approved"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "refresh"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "caption-admission": {
+    "name": "rag-agentic-caption-admission",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "caption-admission"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "caption-admission"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "page-extraction": {
+    "name": "rag-agentic-page-extraction",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m nv_ingest_durable.pipeline_worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 2,
+        "cpuCoreLimit": 4,
+        "cpuMemoryRequest": "2Gi",
+        "cpuMemoryLimit": "8Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts/stages"
+        },
+        {
+          "name": "PAGE_ELEMENTS_URL",
+          "value": "${PAGE_ELEMENTS_URL}"
+        },
+        {
+          "name": "TABLE_STRUCTURE_URL",
+          "value": "${TABLE_STRUCTURE_URL}"
+        },
+        {
+          "name": "OCR_URL",
+          "value": "${OCR_URL}"
+        },
+        {
+          "name": "GRAPHIC_ELEMENTS_URL",
+          "value": "${GRAPHIC_ELEMENTS_URL}"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "INDEX_MODEL_DIGEST",
+          "value": "${INDEX_MODEL_DIGEST}"
+        },
+        {
+          "name": "INDEX_CONFIG_DIGEST",
+          "value": "${INDEX_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "EXTRACTION_BATCH_SIZE",
+          "value": "2"
+        },
+        {
+          "name": "EXTRACTION_DPI",
+          "value": "200"
+        },
+        {
+          "name": "EXTRACT_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_CHARTS",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "STAGE_WORKER_ROLE",
+          "value": "fused"
+        },
+        {
+          "name": "STAGE_WORKER_STREAM",
+          "value": "rag.agentic.pages.extraction.pending"
+        },
+        {
+          "name": "STAGE_WORKER_GROUP",
+          "value": "rag-agentic-fused-v1"
+        },
+        {
+          "name": "STAGE_WORKER_CONCURRENCY",
+          "value": "2"
+        },
+        {
+          "name": "STAGE_WORKER_READ_COUNT",
+          "value": "2"
+        },
+        {
+          "name": "STAGE_WORKER_MICROBATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_RECLAIM_IDLE_MS",
+          "value": "30000"
+        },
+        {
+          "name": "STAGE_WORKER_LEASE_SECONDS",
+          "value": "600"
+        },
+        {
+          "name": "STAGE_WORKER_HEARTBEAT_SECONDS",
+          "value": "30"
+        },
+        {
+          "name": "CAPTION_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_EXTRA_BODY",
+          "value": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+        },
+        {
+          "name": "INDEX_RESULT_STREAM",
+          "value": "rag.agentic.pages.index"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "page-extraction"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8083,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "image-extraction": {
+    "name": "rag-agentic-image-extraction",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m nv_ingest_durable.pipeline_worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 2,
+        "cpuCoreLimit": 4,
+        "cpuMemoryRequest": "2Gi",
+        "cpuMemoryLimit": "8Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts/stages"
+        },
+        {
+          "name": "PAGE_ELEMENTS_URL",
+          "value": "${PAGE_ELEMENTS_URL}"
+        },
+        {
+          "name": "TABLE_STRUCTURE_URL",
+          "value": "${TABLE_STRUCTURE_URL}"
+        },
+        {
+          "name": "OCR_URL",
+          "value": "${OCR_URL}"
+        },
+        {
+          "name": "GRAPHIC_ELEMENTS_URL",
+          "value": "${GRAPHIC_ELEMENTS_URL}"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "INDEX_MODEL_DIGEST",
+          "value": "${INDEX_MODEL_DIGEST}"
+        },
+        {
+          "name": "INDEX_CONFIG_DIGEST",
+          "value": "${INDEX_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "EXTRACTION_BATCH_SIZE",
+          "value": "2"
+        },
+        {
+          "name": "EXTRACTION_DPI",
+          "value": "200"
+        },
+        {
+          "name": "EXTRACT_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_CHARTS",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "STAGE_WORKER_ROLE",
+          "value": "fused"
+        },
+        {
+          "name": "STAGE_WORKER_STREAM",
+          "value": "rag.agentic.images.extraction.pending"
+        },
+        {
+          "name": "STAGE_WORKER_GROUP",
+          "value": "rag-agentic-fused-v1"
+        },
+        {
+          "name": "STAGE_WORKER_CONCURRENCY",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_READ_COUNT",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_MICROBATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_RECLAIM_IDLE_MS",
+          "value": "30000"
+        },
+        {
+          "name": "STAGE_WORKER_LEASE_SECONDS",
+          "value": "600"
+        },
+        {
+          "name": "STAGE_WORKER_HEARTBEAT_SECONDS",
+          "value": "30"
+        },
+        {
+          "name": "CAPTION_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_EXTRA_BODY",
+          "value": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+        },
+        {
+          "name": "INDEX_RESULT_STREAM",
+          "value": "rag.agentic.assets.index"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "image-extraction"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8083,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "binary-extraction": {
+    "name": "rag-agentic-binary-extraction",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m nv_ingest_durable.pipeline_worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 2,
+        "cpuCoreLimit": 4,
+        "cpuMemoryRequest": "2Gi",
+        "cpuMemoryLimit": "8Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts/stages"
+        },
+        {
+          "name": "PAGE_ELEMENTS_URL",
+          "value": "${PAGE_ELEMENTS_URL}"
+        },
+        {
+          "name": "TABLE_STRUCTURE_URL",
+          "value": "${TABLE_STRUCTURE_URL}"
+        },
+        {
+          "name": "OCR_URL",
+          "value": "${OCR_URL}"
+        },
+        {
+          "name": "GRAPHIC_ELEMENTS_URL",
+          "value": "${GRAPHIC_ELEMENTS_URL}"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "INDEX_MODEL_DIGEST",
+          "value": "${INDEX_MODEL_DIGEST}"
+        },
+        {
+          "name": "INDEX_CONFIG_DIGEST",
+          "value": "${INDEX_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "EXTRACTION_BATCH_SIZE",
+          "value": "2"
+        },
+        {
+          "name": "EXTRACTION_DPI",
+          "value": "200"
+        },
+        {
+          "name": "EXTRACT_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_CHARTS",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "STAGE_WORKER_ROLE",
+          "value": "fused"
+        },
+        {
+          "name": "STAGE_WORKER_STREAM",
+          "value": "rag.agentic.binaries.extraction.pending"
+        },
+        {
+          "name": "STAGE_WORKER_GROUP",
+          "value": "rag-agentic-fused-v1"
+        },
+        {
+          "name": "STAGE_WORKER_CONCURRENCY",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_READ_COUNT",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_MICROBATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_RECLAIM_IDLE_MS",
+          "value": "30000"
+        },
+        {
+          "name": "STAGE_WORKER_LEASE_SECONDS",
+          "value": "600"
+        },
+        {
+          "name": "STAGE_WORKER_HEARTBEAT_SECONDS",
+          "value": "30"
+        },
+        {
+          "name": "CAPTION_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_EXTRA_BODY",
+          "value": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+        },
+        {
+          "name": "INDEX_RESULT_STREAM",
+          "value": "rag.agentic.assets.index"
+        },
+        {
+          "name": "PDF_EXTRACTION_REUSE",
+          "value": "true"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "binary-extraction"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8083,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "page-admission": {
+    "name": "rag-agentic-page-admission",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "page-admission"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "page-admission"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "asset-admission": {
+    "name": "rag-agentic-asset-admission",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "asset-admission"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "asset-admission"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  },
+  "asset-download": {
+    "name": "rag-agentic-asset-download",
+    "projectId": "${RUNAI_PROJECT_ID}",
+    "clusterId": "${RUNAI_CLUSTER_ID}",
+    "spec": {
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": "python",
+      "args": "-m application.worker",
+      "createHomeDir": false,
+      "compute": {
+        "cpuCoreRequest": 0.25,
+        "cpuCoreLimit": 1,
+        "cpuMemoryRequest": "512Mi",
+        "cpuMemoryLimit": "2Gi"
+      },
+      "security": {
+        "uidGidSource": "custom",
+        "runAsUid": 1000,
+        "runAsGid": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "hostIpc": false,
+        "hostNetwork": false
+      },
+      "environmentVariables": [
+        {
+          "name": "POSTGRES_DSN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "POSTGRES_DSN"
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "REDIS_URL"
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_ENDPOINT"
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_URI"
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_USER"
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "ES_READER_PASSWORD"
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "asset-download"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "secret": {
+            "name": "${RUNTIME_SECRET}",
+            "key": "MILVUS_TOKEN"
+          }
+        }
+      ],
+      "storage": {
+        "pvc": [
+          {
+            "name": "artifacts",
+            "claimName": "${ARTIFACT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": false,
+            "path": "/artifacts"
+          },
+          {
+            "name": "embedding-checkpoint",
+            "claimName": "${CHECKPOINT_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/model/embed"
+          },
+          {
+            "name": "configuration",
+            "claimName": "${CONFIG_PVC}",
+            "existingPvc": true,
+            "ephemeral": false,
+            "readOnly": true,
+            "path": "/app/config"
+          }
+        ],
+        "emptyDirVolume": [
+          {
+            "name": "tmp",
+            "path": "/tmp",
+            "sizeLimit": "2Gi"
+          }
+        ],
+        "secretVolume": [
+          {
+            "name": "es-ca",
+            "secret": "${ES_CA_SECRET}",
+            "mountPath": "/etc/rag-agentic-es"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "name": "rag-agentic-component",
+          "value": "application"
+        },
+        {
+          "name": "rag-agentic-role",
+          "value": "asset-download"
+        }
+      ],
+      "restartPolicy": "Always",
+      "preemptibility": "non-preemptible",
+      "terminationGracePeriodSeconds": 30,
+      "probes": {
+        "readiness": {
+          "initialDelaySeconds": 5,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3,
+          "handler": {
+            "httpGet": {
+              "path": "/health/ready",
+              "port": 8085,
+              "scheme": "HTTP"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+--- a/nemo_retriever/models/inference/runtime.py
++++ b/nemo_retriever/models/inference/runtime.py
+@@ -41,0 +42 @@
++    dimensions: Optional[int] = None,
+@@ -43 +44 @@
+-    truncate: str = "END",
++    truncate: str = "NONE",
+@@ -84 +85 @@
+-        dimensions=None,
++        dimensions=dimensions,
+@@ -125,0 +127 @@
++    dimensions: Optional[int] = None,
+@@ -174 +176 @@
+-                else "END"
++                else "NONE"
+@@ -180 +182 @@
+-        (embedding_runtime_modality({}, default_modality=embed_modality), "END")
++        (embedding_runtime_modality({}, default_modality=embed_modality), "NONE")
+@@ -199,0 +202 @@
++                dimensions=dimensions,
+@@ -240,0 +244,4 @@
++
++    if dimensions is not None and any(int(d) != dimensions for d in out_df[embedding_dim_column].tolist()):
++        raise ValueError(f"Embedding contract requires {dimensions} dimensions for every input row; incomplete or incompatible output")
++

@@ -1,0 +1,62 @@
+{
+  "name": "rag-model-graphic-elements",
+  "projectId": "${RUNAI_PROJECT_ID}",
+  "clusterId": "${RUNAI_CLUSTER_ID}",
+  "spec": {
+    "image": "nvcr.io/nim/nvidia/nemotron-graphic-elements-v1:latest",
+    "imagePullPolicy": "Always",
+    "createHomeDir": false,
+    "compute": {
+      "cpuCoreRequest": 1,
+      "cpuMemoryRequest": "8Gi",
+      "gpuDevicesRequest": 1,
+      "gpuRequestType": "portion",
+      "gpuPortionRequest": 0.25
+    },
+    "environmentVariables": [
+      {
+        "name": "NIM_NUM_MODEL_INSTANCES",
+        "value": "1"
+      },
+      {
+        "name": "NIM_TRITON_MODEL_INSTANCE_COUNT",
+        "value": "1"
+      },
+      {
+        "name": "NIM_TRITON_DATA_MAX_BATCH_SIZE",
+        "value": "1"
+      }
+    ],
+    "storage": {
+      "pvc": [
+        {
+          "name": "checkpoint",
+          "claimName": "${MODEL_CHECKPOINT_PVC}",
+          "existingPvc": true,
+          "ephemeral": false,
+          "readOnly": false,
+          "path": "/opt/nim/.cache"
+        },
+        {
+          "name": "runtime-cache",
+          "claimName": "${MODEL_CACHE_PVC}",
+          "existingPvc": true,
+          "ephemeral": false,
+          "readOnly": false,
+          "path": "/opt/cache",
+          "subPath": "${GPU_CACHE_SUBPATH}"
+        }
+      ],
+      "emptyDirVolume": [
+        {
+          "name": "shm",
+          "path": "/dev/shm",
+          "sizeLimit": "8Gi",
+          "medium": "Memory"
+        }
+      ]
+    },
+    "restartPolicy": "Always",
+    "preemptibility": "non-preemptible"
+  }
+}

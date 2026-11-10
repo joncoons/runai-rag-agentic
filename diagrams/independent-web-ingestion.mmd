@@ -1,0 +1,26 @@
+flowchart TD
+  W[Original queued webcrawler — scoped unlimited depth] --> P[HTML page discovery]
+  P --> T[PostgreSQL transaction: page receipt + text job + asset intents; no corpus publication validation]
+  T --> Q[Redis: page extraction]
+  Q --> E[Whole-page embedding]
+  E --> A[Ready-page admission; bounded proof-preserving batches]
+  A --> V[Incremental immutable record-version writer]
+  V --> ES[Elasticsearch receipt]
+  V --> MV[Optional Milvus strong-visibility receipt]
+  ES --> PG[PostgreSQL authorized-version switch]
+  MV --> PG
+  T --> D[Redis: deferred download work]
+  D --> L[Leased downloads — bounded retries]
+  L --> B[Binary extraction]
+  L --> I[NV-Ingest image extraction]
+  B --> AA[Asset admission — exact current parent fence]
+  I --> AA
+  AA --> V
+  I --> C{Caption enabled and native minimum met?}
+  C --> CQ[Redis: independent caption inference]
+  CQ --> CA[Caption admission — current parent + consent fence]
+  CA --> V
+  AA --> U[Same page record enrichment or independent binary records]
+  CA --> U
+
+  PG --> R[Search filters exact published versions before top-k]
