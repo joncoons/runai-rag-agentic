@@ -5,13 +5,13 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('application/static/app.js', 'utf8');
 function fixture(view='location') {
-  const nodes = new Map();
+  const nodes = new Map(),intervals=[],documentEvents=new Map();
   const element = (id, value='') => { const node={value,checked:false,dataset:{},textContent:'',innerHTML:'',className:'',events:{},querySelectorAll:()=>[],addEventListener(name,fn){this.events[name]=fn;},setAttribute(){},focus(){}};nodes.set(id,node);return node; };
   for (const id of ['view','notice','connection','main']) element(id);
-  const context=vm.createContext({console,URL,FormData,Intl,Date,location:{hash:'#'+view+'/c1',origin:'https://app.test'},document:{getElementById:id=>nodes.get(id)||null,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){},scrollTo(){}},sessionStorage:{getItem(){return '[]';},setItem(){}},fetch:()=>new Promise(()=>{}),setInterval(){},setTimeout(){}});
+  const context=vm.createContext({console,URL,FormData,Intl,Date,location:{hash:'#'+view+'/c1',origin:'https://app.test'},document:{getElementById:id=>nodes.get(id)||null,querySelectorAll:()=>[],addEventListener(name,fn){documentEvents.set(name,fn);}},window:{addEventListener(){},scrollTo(){}},sessionStorage:{getItem(){return '[]';},setItem(){}},fetch:()=>new Promise(()=>{}),setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(){}});
   vm.runInContext(source, context);
   vm.runInContext("state.collections=[{id:'c1',name:'Documents'}];state.loaded=true;",context);
-  return {context,nodes,element,run:code=>vm.runInContext(code,context)};
+  return {context,nodes,element,intervals,documentEvents,run:code=>vm.runInContext(code,context)};
 }
 function schedule(f,prefix){for(const [key,value] of Object.entries({enabled:'',timezone:'America/Chicago',start:'02:00',end:'06:00'}))f.element(prefix+'-'+key,value);}
 
@@ -111,4 +111,27 @@ test('missing or relative source URIs never fabricate links to the app host',()=
 test('opaque downloaded filenames use the original webpage URL as link label',()=>{
  const f=fixture('search');f.run("state.result={answer:'Answer',sources:[{citation_id:'S1',title:'"+'a'.repeat(64)+".html',uri:'https://example.test/student-cards'}],warnings:[]}");
  const html=f.run('resultsView()');assert.match(html,/>https:\/\/example.test\/student-cards<\/a>/);assert.doesNotMatch(html,new RegExp('a'.repeat(64)));
+});
+
+test('caption rows show inference progress independently of publication',()=>{
+ const f=fixture('collection');
+ const html=f.run("imageOriginsView({image_origins:{webpage:{unique_images:10,associations:10,pending:10,queued:6,generating:1,generated:3,publishing:3,completed:0}}})");
+ assert.match(html,/<th>Generated<\/th>/);assert.match(html,/<th>Awaiting publication<\/th>/);
+ assert.match(html,/<td>6<\/td><td>1<\/td><td>3<\/td><td>3<\/td><td>0<\/td>/);
+});
+test('active run counts expose progress before a crawl finishes',()=>{
+ const f=fixture();const text=f.run("sourceCounts({pages_captured:12,pages_published:9,assets_discovered:20,assets_downloaded:8,captions_generated:4,captions_published:0})");
+ assert.match(text,/12 captured/);assert.match(text,/4 generated/);assert.match(text,/0 published/);
+});
+
+
+test('manual active crawls refresh on the visible collection without a schedule gate',()=>{
+ const f=fixture('collection');f.context.calls=[];f.context.document.hidden=false;
+ f.run("refreshCollections=()=>calls.push('collections');refreshSources=id=>calls.push(id);status=()=>calls.push('status');");
+ f.intervals.find(t=>t.ms===5000).fn();assert.ok(f.context.calls.includes('c1'));
+ f.context.calls.length=0;f.documentEvents.get('visibilitychange')();assert.ok(f.context.calls.includes('c1'));
+});
+test('pending publication is labeled as updates without denying published content',()=>{
+ const f=fixture();const html=f.run("processingView({processing:{publication_pending:true,publication_pending_operations:3}})");
+ assert.match(html,/Updates awaiting publication/);assert.match(html,/3 operation\(s\)/);assert.match(html,/Published content remains searchable/);assert.doesNotMatch(html,/<dt>Publication pending<\/dt>/);
 });

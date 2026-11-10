@@ -4,7 +4,7 @@
   "screenshots": [
     {
       "path": "docs/gui/images/01-collections.png",
-      "sha256": "95141d5f071817931f25a007757bf2ef5ee3f866da4d96a7b1daf68e12547bf4",
+      "sha256": "d4bbdce602271385355b9501697b45d2f0e5c42fab0212dec208472dfdb0bcd8",
       "width": 1440,
       "height": 1040
     },
@@ -16,13 +16,13 @@
     },
     {
       "path": "docs/gui/images/03-collection-overview.png",
-      "sha256": "904aae3e628d5b70ce3f66f8407371af2610500a4d75b24415858040f25d7494",
+      "sha256": "807cee9b70d4aa41cb3e2a7d3b29479bc9d7fd50d2fe8f8c98161008cba5fdd7",
       "width": 1440,
       "height": 1040
     },
     {
       "path": "docs/gui/images/04-saved-sources.png",
-      "sha256": "3662861fac585ffe4e5a870b59c5fe0ca58591cb08d6be055955682c93911db7",
+      "sha256": "eeecd2e5b313b0c5d9c02204c34915009103dd10d75ffa9956dcfa52f98e96d0",
       "width": 1440,
       "height": 1040
     },
@@ -64,19 +64,19 @@
     },
     {
       "path": "docs/gui/images/10-document-url.png",
-      "sha256": "00bf3842924cc1d9be659656e380384ff7d75c60af6b7bd62f8ee913a1005522",
+      "sha256": "dd89a01523b3be267cfb8cbe09d6ecb5338ffa97ce15b633d50d4a5b72ade08d",
       "width": 1440,
       "height": 1040
     },
     {
       "path": "docs/gui/images/11-edit-source-schedule.png",
-      "sha256": "2ff0814adf4d86c36c8abc4625ce752719afa8052ecf58686653a5ea943d5758",
+      "sha256": "52559078bd0d31ee83af846ae160d7e48f6a42fee2bbf654479a2a4240eae969",
       "width": 1440,
       "height": 1040
     },
     {
       "path": "docs/gui/images/12-ingestion-progress.png",
-      "sha256": "c29ff0fbc843dbdbec2f20de80bef2783840943e555c81227cad8d84765b765f",
+      "sha256": "12b9e6f025177982edeeb2610d6fb611505690ae20afbbf50492cbffcde30474",
       "width": 1440,
       "height": 1040
     },
@@ -100,13 +100,13 @@
     },
     {
       "path": "docs/gui/images/16-duplicate-to-milvus.png",
-      "sha256": "9f141c3736e562106e8b4d244971d623aebb7b24ed3aa5bdab581681d2e71249",
+      "sha256": "ca1f4cc02b791eb70f214730d824c3241e825c8abcbe5098123b9a412591725e",
       "width": 1440,
       "height": 1040
     },
     {
       "path": "docs/gui/images/17-delete-confirmation.png",
-      "sha256": "14da8e3126f5ab8049b43f99fbf2fc5f433c29b009d80ac5df38996fcfe85cfb",
+      "sha256": "c3dd0074767f7b2047fe667311feee0088137a5a7e1602967447c2d9894718fc",
       "width": 1440,
       "height": 1040
     },

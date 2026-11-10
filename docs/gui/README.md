@@ -42,11 +42,11 @@ Give the collection a recognizable name. Elasticsearch always receives its conte
 |---|---|
 | Elasticsearch status / Milvus enabled | The default index's status and whether the collection is enrolled in Milvus. |
 | Published documents | Sources available through the published collection view. This is different from the number of extracted/indexed records. |
-| Background processing | Work still running while existing content remains searchable. Pending captions do not make the whole collection unavailable. |
+| Background processing | Work still running while existing content remains searchable. Queued, generating, generated and awaiting-publication counts are separate; pending updates do not make existing content unavailable. |
 | Images by origin | Distinguishes webpage images, PDF regions and other document images when present. Unique images deduplicates identical content within an origin; associations counts its source/region relationships. |
 | Collection details | Optional technical identifiers and generation information; normal ingestion does not require editing these. |
 
-The example deliberately shows published documents alongside two pending captions to illustrate independent processing.
+The example deliberately shows published documents alongside pending updates. Generated counts include successful inference that may still await publication; published counts represent searchable captions. Visible collection/source progress refreshes every five seconds and when the browser tab returns to the foreground.
 
 ## Upload files
 
@@ -170,7 +170,7 @@ Job views separate document processing, linked assets and optional captions:
 |---|---|
 | File / Status / Records | Per-document progress and derived-record count. One document may create multiple records. |
 | Linked assets | Binary/image work and native processing state. |
-| Image captions | Pending/completed/failed counts and relevant individual-image statuses. |
+| Image captions | Generating, generated, awaiting-publication, published and failed counts, with relevant individual-image statuses. |
 | Operation receipts | Optional per-store publication details for the job. |
 
 Text remains searchable while independent assets/captions continue. A generated caption may still await admission/publication; inference and publication are different stages. Deleted/undersized images are not actionable caption failures. Pending work alone does not imply a failed page.

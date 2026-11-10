@@ -193,7 +193,7 @@ def _safe_errors(value):
     return list(dict.fromkeys(_safe_error(error) for error in errors))
 
 
-from application.gui_health import GUI_SOURCE_CTES,CAPTION_ROWS,CAPTION_STATES,SOURCE_ROWS,visible_captions,visible_job_summary,image_origin_summary
+from application.gui_health import GUI_SOURCE_CTES,CAPTION_ROWS,CAPTION_STATES,SOURCE_ROWS,visible_captions,visible_job_summary,image_origin_summary,JOB_CAPTION_SCOPE
 
 COLLECTIONS_SQL = GUI_SOURCE_CTES + ''', latest AS (
     SELECT DISTINCT ON (collection_id,source_id) collection_id,source_id,document_id,status,web_role
@@ -206,9 +206,10 @@ SELECT a.name,a.requested_milvus,c.collection_id,c.revision,c.milvus_enabled,c.c
     (SELECT count(*) FROM latest r WHERE r.collection_id=c.collection_id AND r.status='queued' AND EXISTS(SELECT 1 FROM public.stage_units s WHERE s.document_id=r.document_id AND s.stage='extraction' AND s.status='committed')) AS admission_waiting,
     (SELECT count(*) FROM latest r WHERE r.collection_id=c.collection_id AND r.status='failed') AS source_failed,
     EXISTS(SELECT 1 FROM collection_control.operations o WHERE o.collection_id=c.collection_id AND o.status='pending') AS mutation_pending,
+    (SELECT count(*) FROM collection_control.operations o WHERE o.collection_id=c.collection_id AND o.status='pending') AS mutation_pending_count,
     (SELECT count(*) FROM captions p WHERE p.collection_id=c.collection_id AND p.status IN ('queued','processing','publishing')) AS caption_pending,
     (SELECT count(*) FROM captions p WHERE p.collection_id=c.collection_id AND p.status='failed') AS caption_failed,
-    (SELECT COALESCE(jsonb_agg(jsonb_build_object('stage_key',p.stage_key,'asset_sha256',p.asset_sha256,'status',p.status,'origin',CASE WHEN p.source_kind='pdf' THEN 'pdf' WHEN p.web_role='image' THEN 'webpage' ELSE 'other' END)),'[]'::jsonb) FROM captions p WHERE p.collection_id=c.collection_id) AS caption_origin_rows
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('stage_key',p.stage_key,'asset_sha256',p.asset_sha256,'status',p.status,'inference_status',p.inference_status,'origin',CASE WHEN p.source_kind='pdf' THEN 'pdf' WHEN p.web_role='image' THEN 'webpage' ELSE 'other' END)),'[]'::jsonb) FROM captions p WHERE p.collection_id=c.collection_id) AS caption_origin_rows
 FROM application.collections a JOIN collection_control.collections c USING(collection_id)
 WHERE NOT c.deleted ORDER BY a.created_at,c.collection_id'''
 
@@ -284,6 +285,7 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
                      'attention' if row['source_failed'] else 'empty')
             origin_rows=row.get('caption_origin_rows') or []
             if isinstance(origin_rows,str):origin_rows=json.loads(origin_rows)
+            origin_summary=image_origin_summary(origin_rows,visible_failed_keys)
             result.append({'id': row['collection_id'], 'name': row['name'],
                 'also_write_milvus': row['requested_milvus'] or row['milvus_enabled'],
                 'milvus_status': 'ready' if row['milvus_enabled'] and row['current_operation'] else
@@ -291,8 +293,8 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
                 'status': state, 'generation': row['revision'], 'documents': row['documents'],
                 'published_documents':row.get('published_documents',row['documents']),
                 'elasticsearch_status':'ready' if row['current_operation'] else 'indexing' if row['mutation_pending'] else 'empty',
-                'processing':{'sources_pending':row['source_pending'],'sources_failed':row['source_failed'],'admission_waiting':row.get('admission_waiting',0),'captions_pending':row['caption_pending'],'publication_pending':row['mutation_pending']},
-                'image_origins':image_origin_summary(origin_rows,visible_failed_keys),
+                'processing':{'sources_pending':row['source_pending'],'sources_failed':row['source_failed'],'admission_waiting':row.get('admission_waiting',0),'captions_pending':row['caption_pending'],'captions_generated':sum(v['generated'] for v in origin_summary.values()),'publication_pending':row['mutation_pending'],'publication_pending_operations':row.get('mutation_pending_count',int(bool(row['mutation_pending'])))},
+                'image_origins':origin_summary,
                 'caption_pending': row['caption_pending'], 'caption_failed': failed_counts.get(row['collection_id'],0) if failed_counts is not None else row['caption_failed']})
         return {'collections': result}
 
@@ -487,7 +489,7 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
         if row is None:
             raise HTTPException(404, 'Ingestion job is unavailable')
         documents = await ctx.pool.fetch(SOURCE_ROWS+' WHERE job_id=$1 ORDER BY filename,document_id', job_id)
-        captions = await ctx.pool.fetch(CAPTION_STATES + ' AND a.parent_job_id=$1 ORDER BY a.created_at,a.stage_key', job_id)
+        captions = await ctx.pool.fetch(CAPTION_STATES + JOB_CAPTION_SCOPE + ' ORDER BY a.created_at,a.stage_key', job_id)
         if row['deleted']:documents=[];captions=[]
         else:captions=await visible_captions(ctx.settings,captions)
         relevant=bool(documents or captions)
@@ -495,9 +497,12 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
             relevant=not await ctx.pool.fetchval('SELECT EXISTS(SELECT 1 FROM application.source_revisions WHERE job_id=$1)',job_id)
         total_sources=await ctx.pool.fetchval('SELECT count(*) FROM application.source_revisions WHERE job_id=$1',job_id)
         display_status,display_stage,display_errors=visible_job_summary(row,documents,total_sources>len(documents))
-        images, counts = [], {'pending': 0, 'completed': 0, 'failed': 0}
+        images, counts = [], {'pending': 0, 'completed': 0, 'failed': 0, 'generated':0, 'generating':0, 'publishing':0}
         for image in captions:
             state = image['status']
+            if image.get('inference_status')=='committed' or state in ('publishing','completed'):counts['generated']+=1
+            if state=='processing':counts['generating']+=1
+            if state=='publishing':counts['publishing']+=1
             if row['deleted'] and state != 'completed':
                 state = 'cancelled'
             if state in ('completed', 'failed'):

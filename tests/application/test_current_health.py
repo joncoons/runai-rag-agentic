@@ -125,3 +125,32 @@ class CorruptSmallCaptionTests(unittest.IsolatedAsyncioTestCase):
    mu,ms=retain(root,json.dumps({'asset_uri':uri,'asset_sha256':sha}).encode(),'.json')
    row={'stage_key':'corrupt-jpeg','status':'failed','manifest_uri':mu,'manifest_sha256':ms.removeprefix('sha256:'),'asset_sha256':sha.removeprefix('sha256:')}
    self.assertEqual(await visible_captions(SimpleNamespace(stages=root),[row]),[row])
+
+class CaptionProgressProjectionTests(unittest.TestCase):
+ def test_generation_advances_before_publication(self):
+  from application.gui_health import image_origin_summary
+  rows=[{'stage_key':'q','origin':'webpage','status':'queued','inference_status':'pending'},
+        {'stage_key':'r','origin':'webpage','status':'processing','inference_status':'running'},
+        {'stage_key':'g','origin':'webpage','status':'publishing','inference_status':'committed'},
+        {'stage_key':'p','origin':'webpage','status':'completed','inference_status':'committed'}]
+  result=image_origin_summary(rows)['webpage']
+  self.assertEqual(result['generated'],2);self.assertEqual(result['completed'],1)
+  self.assertEqual(result['generating'],1);self.assertEqual(result['queued'],1)
+  self.assertEqual(result['publishing'],1);self.assertEqual(result['pending'],3)
+
+class SourceProgressLifetimeTests(unittest.IsolatedAsyncioTestCase):
+ async def test_latest_published_run_keeps_async_progress_and_older_history_is_unchanged(self):
+  from unittest.mock import AsyncMock,patch
+  from application.source_registry import SourceRegistry
+  pool=AsyncMock();pool.fetchval.return_value=True
+  source=uuid4();latest=uuid4();old=uuid4()
+  pool.fetch.return_value=[{'run_id':latest,'state':'published','counts':{'new':2}}, {'run_id':old,'state':'published','counts':{'new':1}}]
+  with patch('application.gui_health.live_run_progress',AsyncMock(return_value={'pages_captured':2,'captions_generated':1})) as progress:
+   result=await SourceRegistry(pool).history(source,'collection')
+  self.assertEqual(result[0]['counts'],{'new':2,'pages_captured':2,'captions_generated':1})
+  self.assertEqual(result[1]['counts'],{'new':1});progress.assert_awaited_once_with(pool,latest)
+ async def test_nonwebsite_or_nonstreamed_run_preserves_original_counters(self):
+  from unittest.mock import AsyncMock
+  from application.gui_health import live_run_progress
+  pool=AsyncMock();pool.fetchrow.return_value=None
+  self.assertEqual(await live_run_progress(pool,uuid4()),{})

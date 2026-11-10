@@ -367,4 +367,8 @@ class SourceRegistry:
         exists = await self.pool.fetchval('''SELECT EXISTS(SELECT 1 FROM application.website_sources s JOIN collection_control.collections c USING(collection_id)
             WHERE s.source_id=$1 AND s.collection_id=$2 AND NOT c.deleted)''', _id(source_id), collection_id)
         if not exists: raise Conflict('Website source is unavailable')
-        return [_dict(r) for r in await self.pool.fetch('SELECT * FROM application.website_source_runs WHERE source_id=$1 AND collection_id=$2 ORDER BY created_at DESC,run_id DESC', _id(source_id), collection_id)]
+        runs=[_dict(r) for r in await self.pool.fetch('SELECT * FROM application.website_source_runs WHERE source_id=$1 AND collection_id=$2 ORDER BY created_at DESC,run_id DESC', _id(source_id), collection_id)]
+        from .gui_health import live_run_progress
+        for run in runs[:1]:
+            if run['state'] in ('scanning','accepted','published'):run['counts']={**(run.get('counts') or {}),**await live_run_progress(self.pool,run['run_id'])}
+        return runs
