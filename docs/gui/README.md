@@ -46,7 +46,7 @@ Give the collection a recognizable name. Elasticsearch always receives its conte
 | Images by origin | Distinguishes webpage images, PDF regions and other document images when present. Unique images deduplicates identical content within an origin; associations counts its source/region relationships. |
 | Collection details | Optional technical identifiers and generation information; normal ingestion does not require editing these. |
 
-The example deliberately shows published documents alongside pending updates. Generated counts include successful inference that may still await publication; published counts represent searchable captions. Visible collection/source progress refreshes every five seconds and when the browser tab returns to the foreground.
+The example deliberately shows published documents alongside pending updates. Caption generation pending counts only queued/running inference. Captions awaiting publication counts successfully generated associations waiting for downstream admission and store receipts. Generated counts include successful inference that may still await publication; published counts represent searchable captions. Visible collection/source progress refreshes every five seconds and when the browser tab returns to the foreground.
 
 ## Upload files
 
@@ -104,7 +104,7 @@ Hostname permission and HTML-path scope serve different purposes. Here HTML stay
 | Caption webpage images | Optional, available when image processing is selected. Eligible images enter the independent caption queue. |
 | Save and check website | Save the source and queue its first check. Future checks use its saved settings. |
 
-Webpage text is admitted independently of linked downloads, binary extraction and image/caption processing. Image evidence/captions enrich their parent page rather than adding standalone image vectors. Linked binary documents become separate sources. Legal/disclosure text can be represented separately from the main page text.
+Webpage text is admitted independently of linked downloads, binary extraction and image/caption processing. Image evidence/captions enrich their parent page rather than adding standalone webpage-image vectors. Identical retained image bytes reuse captioning and embedding within a collection when the model and effective processing contract match. Repeated occurrences retain their parent/source links; repeated image regions in one document publish one content-derived caption record, including when replacing an equivalent older record. Distinct parent documents keep their own evidence associations. Hashes compare exact retained model-input bytes after the existing normalization; no perceptual similarity matching is introduced. Different hashes remain distinct inputs. Linked binary documents become separate sources. Legal/disclosure text can be represented separately from the main page text.
 
 ## Connect a directory or document URL
 

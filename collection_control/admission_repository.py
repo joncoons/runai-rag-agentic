@@ -157,7 +157,7 @@ class ProvenanceRepository(ControlRepository):
             associated=[j for j in extraction_result.get('caption_jobs',[]) if j.get('envelope',{}).get('idempotency_key')==row['stage_key']]
             if len(associated)!=1 or associated[0].get('manifest_uri')!=asset['manifest_uri'] or associated[0].get('manifest_sha256')!=asset['manifest_sha256'] or associated[0].get('asset_sha256')!=asset['asset_sha256']:
                 raise Conflict('Committed extraction does not bind this caption asset')
-            record=caption_record(checkpoint,stage,asset,manifest,parent,proof['contract'],stage_root)
+            record=caption_record(checkpoint,stage,asset,manifest,parent,proof['contract'],stage_root,identity_policy=proof.get('record_identity_policy','caption-stage.v1'))
             if record_digest(record)!=row['record_sha256'] or record['record_id']!=row['record_id']:
                 raise Conflict('Caption retained vector/text derivation differs')
         return rows

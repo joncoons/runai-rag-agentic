@@ -135,3 +135,14 @@ test('pending publication is labeled as updates without denying published conten
  const f=fixture();const html=f.run("processingView({processing:{publication_pending:true,publication_pending_operations:3}})");
  assert.match(html,/Updates awaiting publication/);assert.match(html,/3 operation\(s\)/);assert.match(html,/Published content remains searchable/);assert.doesNotMatch(html,/<dt>Publication pending<\/dt>/);
 });
+
+
+test('caption generation and downstream publication have distinct counters',()=>{
+ const f=fixture('collection');
+ const html=f.run("processingView({processing:{captions_generated:25,captions_pending:0,captions_awaiting_publication:25}})");
+ assert.match(html,/Captions awaiting publication/);
+ assert.doesNotMatch(html,/Caption generation pending|Caption tasks pending/);
+ const pending=f.run("processingView({processing:{captions_pending:3,captions_awaiting_publication:25}})");
+ assert.match(pending,/Caption generation pending/);
+ assert.match(pending,/Captions awaiting publication/);
+});

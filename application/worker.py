@@ -220,7 +220,32 @@ class ApplicationWorker:
         col=await self.pool.fetchrow('SELECT * FROM collection_control.collections WHERE collection_id=$1',asset['collection_id'])
         if not col or col['deleted']:return
         await self._yield_to_ready_pages(asset['collection_id'])
-        web=await self.pool.fetchval("SELECT web_role FROM application.source_revisions WHERE document_id=$1",e.document_id)
+        source=await self.pool.fetchrow("SELECT r.web_role,r.status,r.records,r.source_revision_id,r.web_asset_download_id,r.web_group_id,src.current_revision_id FROM application.source_revisions r JOIN application.sources src USING(source_id) WHERE r.document_id=$1",e.document_id)
+        web=source['web_role'] if source else None
+        # A generated child must never bypass a non-empty unadmitted parent
+        # by attempting the qualified empty-capture path. Wait without loading
+        # the entire collection and its retained PDF artifacts on every retry.
+        inactive=source and (source['status'] in ('cancelled','canceled','deleted','superseded') or
+            (source['status']=='published' and source.get('current_revision_id') and source.get('source_revision_id')!=source['current_revision_id']))
+        if inactive:
+            await self.pool.execute("INSERT INTO application.caption_publications(caption_stage_key,status,last_error_type) VALUES($1,'failed','SupersededSource') ON CONFLICT(caption_stage_key) DO UPDATE SET status='failed',last_error_type='SupersededSource'",e.idempotency_key)
+            return
+        if source and web=='image' and source.get('web_group_id') and not source.get('web_asset_download_id'):
+            # Legacy group images are capture-only. Their continued relevance
+            # follows current/pending parent pages, not their historical job.
+            scope=await self.pool.fetchrow("""SELECT count(*)>0 AS has_parents,
+                COALESCE(bool_or(parent.source_revision_id=ps.current_revision_id OR
+                  parent.status IN ('queued','admitting','admitted','publishing','captured')),false) AS relevant
+                FROM application.source_revisions parent JOIN application.sources ps USING(source_id)
+                WHERE parent.web_group_id=$1 AND parent.web_role='page'
+                  AND parent.status NOT IN ('cancelled','canceled','deleted','superseded','failed')""",source['web_group_id'])
+            if not scope['relevant']:
+                await self.pool.execute("INSERT INTO application.caption_publications(caption_stage_key,status,last_error_type) VALUES($1,'failed','SupersededSource') ON CONFLICT(caption_stage_key) DO UPDATE SET status='failed',last_error_type='SupersededSource'",e.idempotency_key)
+                return
+        if source and web!='image' and not (source['status']=='published' or (source['status']=='captured' and source['records']==0)):
+            raise Conflict('Caption awaits parent document publication')
+        if source and web=='image' and source.get('web_asset_download_id') and source['status']!='published':
+            raise Conflict('Web caption awaits native image publication')
         if web=='image':
             from collection_control.web_captions import WebCaptionRepository
             from .web_captions import ParentEmbedding
@@ -258,7 +283,7 @@ class ApplicationWorker:
         # Each admission role runs in its own process/Context/connection pool.
         # Do not consume both streams serially, even when one is currently idle.
         if role=='admission':return await self.consume_once('rag.agentic.index',self.source)
-        if role=='caption-admission':return await self.consume_once('rag.agentic.caption.results',self.caption)
+        if role=='caption-admission':return await self.consume_once('rag.agentic.caption.results',self.caption,batch=32)
         if role=='page-admission':
             count=await self.consume_once('rag.agentic.pages.index',self.source,batch=32)
             return count+await self.admit_ready_pages()

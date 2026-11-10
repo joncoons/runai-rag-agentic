@@ -130,15 +130,16 @@ async def native_dependencies(c,page,raw_root,stage_root):
     return dependencies
 
 
-def enriched_page(parent,images,captions,vector,contract,embedding_config_digest,parent_stage_key):
+def enriched_page(parent,images,captions,vector,contract,embedding_config_digest,parent_stage_key,*,policy='retained-web-enrichment.v3'):
     from .web_captions import captioned_text
     text=parent['text']
     if [x['document_id'] for x in images]!=sorted({x['document_id'] for x in images}):raise Conflict('Native dependencies must be unique and deterministic')
     for image in images:
         if image['text'].strip():text+='\n\n[Grounded image evidence: '+image['canonical_uri']+']\n'+image['text']
-    if captions:text=captioned_text(text,captions)
+    if policy not in ('retained-web-enrichment.v2','retained-web-enrichment.v3'):raise Conflict('Unknown enrichment composition policy')
+    if captions:text=captioned_text(text,captions,deduplicate=policy=='retained-web-enrichment.v3')
     result=copy.deepcopy(parent);result.update(text=text,vector=list(vector))
-    result['metadata'].update(origin='derived',generated_annotation=bool(captions),content_sha256=hashlib.sha256(text.encode()).hexdigest(),web_enrichment_derivation={'policy':'retained-web-enrichment.v2','parent_stage_key':parent_stage_key,'parent_record_id':parent['record_id'],'source_revision_id':parent['metadata']['source_revision_id'],'text_sha256':hashlib.sha256(text.encode()).hexdigest(),'parent_record_sha256':record_digest(parent),'images':copy.deepcopy(images),'captions':copy.deepcopy(captions),'embedding_config_digest':full_hash(embedding_config_digest),'embedding_checkpoint_sha256':contract['embedding_checkpoint_sha256']})
+    result['metadata'].update(origin='derived',generated_annotation=bool(captions),content_sha256=hashlib.sha256(text.encode()).hexdigest(),web_enrichment_derivation={'policy':policy,'parent_stage_key':parent_stage_key,'parent_record_id':parent['record_id'],'source_revision_id':parent['metadata']['source_revision_id'],'text_sha256':hashlib.sha256(text.encode()).hexdigest(),'parent_record_sha256':record_digest(parent),'images':copy.deepcopy(images),'captions':copy.deepcopy(captions),'embedding_config_digest':full_hash(embedding_config_digest),'embedding_checkpoint_sha256':contract['embedding_checkpoint_sha256']})
     admit({'contract':contract,'records':[result]})
     return result
 
@@ -164,7 +165,7 @@ async def verify_enriched(c,op,page,candidate,parent,selected,contract,raw_root,
         actual=await caption_dependency(c,retained['stage_key'],image,contract,stage_root)
         if canonical(actual)!=canonical(retained):raise Conflict('Selected caption dependency differs')
         captions.append(actual)
-    derived=enriched_page(parent,images,captions,selected['vector'],contract,metadata['embedding_config_digest'],candidate['stage_key'])
+    derived=enriched_page(parent,images,captions,selected['vector'],contract,metadata['embedding_config_digest'],candidate['stage_key'],policy=metadata['policy'])
     if canonical(derived)!=canonical(selected):raise Conflict('Selected enrichment is not reproducible')
 
 

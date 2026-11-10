@@ -16,24 +16,29 @@ from .provenance import full_hash, verified_file, caption_record, store_snapshot
 from .repository import Conflict, decoded
 from .pinned_connection import PinnedPool
 
-POLICY='retained-web-caption-page.v1'
+POLICY='retained-web-caption-page.v2'
+LEGACY_POLICY='retained-web-caption-page.v1'
 
 def sha(value):return hashlib.sha256(canonical(value)).hexdigest()
 
-def captioned_text(base,captions):
+def captioned_text(base,captions,*,deduplicate=True):
     if not captions or [x['stage_key'] for x in captions]!=sorted({x['stage_key'] for x in captions}):
         raise Conflict('Web captions require unique deterministic complete dependencies')
-    text=base
+    text=base;seen=set()
     for item in captions:
         if not isinstance(item['text'],str) or not item['text'].strip():raise Conflict('Empty web caption dependency')
         for key in ('asset_sha256','model_digest','config_digest','stage_artifact_sha256'):full_hash(item[key])
+        identity=tuple(full_hash(item[key]) for key in ('asset_sha256','model_digest','config_digest'))
+        if deduplicate and identity in seen:continue
+        seen.add(identity)
         text+='\n\n[Machine-generated image caption: '+item['canonical_uri']+']\n'+item['text']
     return text
 
-def derived_page(parent,captions,vector,contract,embedding_config_digest,parent_stage_key):
-    result=copy.deepcopy(parent);text=captioned_text(parent['text'],captions)
+def derived_page(parent,captions,vector,contract,embedding_config_digest,parent_stage_key,*,policy=POLICY):
+    if policy not in (POLICY,LEGACY_POLICY):raise Conflict('Unknown caption composition policy')
+    result=copy.deepcopy(parent);text=captioned_text(parent['text'],captions,deduplicate=policy==POLICY)
     text_sha=hashlib.sha256(text.encode()).hexdigest()
-    proof={'policy':POLICY,'parent_stage_key':parent_stage_key,'parent_record_id':parent['record_id'],
+    proof={'policy':policy,'parent_stage_key':parent_stage_key,'parent_record_id':parent['record_id'],
         'parent_record_sha256':record_digest(parent),'source_revision_id':parent['metadata']['source_revision_id'],
         'text_sha256':text_sha,'embedding_checkpoint_sha256':contract['embedding_checkpoint_sha256'],
         'embedding_config_digest':full_hash(embedding_config_digest),'captions':copy.deepcopy(captions)}
@@ -81,7 +86,7 @@ async def verify_derived(c,row,parent,candidate,page,contract,raw_root,stage_roo
         actual=await caption_dependency(c,retained['stage_key'],image,contract,stage_root)
         if canonical(actual)!=canonical(retained):raise Conflict('Web caption dependency changed')
         dependencies.append(actual)
-    derived=derived_page(parent,dependencies,proof['record']['vector'],contract,proof['record']['metadata']['web_caption_derivation']['embedding_config_digest'],candidate['stage_key'])
+    derived=derived_page(parent,dependencies,proof['record']['vector'],contract,proof['record']['metadata']['web_caption_derivation']['embedding_config_digest'],candidate['stage_key'],policy=proof['record']['metadata']['web_caption_derivation']['policy'])
     if canonical(derived)!=canonical(proof['record']):raise Conflict('Web parent rematerialization changed')
     return derived
 

@@ -243,3 +243,18 @@ class APITests(unittest.IsolatedAsyncioTestCase):
         asset=next(i for i,s in enumerate(sql) if 'UPDATE caption_control.assets' in s)
         parent=next(i for i,s in enumerate(sql) if 'UPDATE public.jobs' in s)
         self.assertLess(asset,parent)
+
+
+    async def test_pending_generation_excludes_generated_awaiting_publication(self):
+        self.pool.connection.fetch=AsyncMock(return_value=[dict(self.pool.connection.row,
+            mutation_pending=False,source_pending=0,source_failed=0,documents=1,
+            caption_pending=3,caption_failed=0,caption_origin_rows=[
+            {'stage_key':'a','asset_sha256':'a'*64,'status':'publishing','inference_status':'committed','origin':'pdf'},
+            {'stage_key':'b','asset_sha256':'b'*64,'status':'queued','inference_status':'pending','origin':'pdf'},
+            {'stage_key':'c','asset_sha256':'c'*64,'status':'processing','inference_status':'running','origin':'pdf'}])])
+        response=await self.client.get('/api/collections')
+        self.assertEqual(response.status_code,200)
+        progress=response.json()['collections'][0]['processing']
+        self.assertEqual(progress['captions_pending'],2)
+        self.assertEqual(progress['captions_awaiting_publication'],1)
+        self.assertEqual(progress['captions_generated'],1)

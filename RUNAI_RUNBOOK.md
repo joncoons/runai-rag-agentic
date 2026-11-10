@@ -219,3 +219,12 @@ Back up PostgreSQL, retained artifact/configuration PVCs, model/checkpoint ident
 Use `helm history rag -n "$NAMESPACE"` and a previously qualified chart/image/values set for rollback. Do not assume Helm rolls back database schemas, external VDB writes or model caches. Pause ingestion for incompatible model/schema changes; retain historical tokenizer contracts. Uninstall retains the dedicated PVCs; deleting them requires an explicit operator data-retention decision. Never remove shared caches or historical namespaces as incidental cleanup.
 
 The older native-workspace API helper remains an alternative for operators choosing that lifecycle. It is not required for Helm AI Applications and must not create duplicate consumers against the same queues.
+
+
+### Image content reuse upgrades
+
+Run the additive application migration job before starting the updated caption worker; it creates the image-caption cache tables. Use the same application build for the API and all admission/writer roles. Update publication proof readers before resuming the new caption-admission build: existing caption admissions remain valid under their original identity policy. New admissions collapse identical image content within a parent document while retaining historical admissions and source/region links.
+
+Caption generation pending and captions awaiting publication are separate GUI counters. Generated captions become searchable only after parent-source admission and selected-store publication receipts. Identical image bytes reuse successful caption/vector inference within a collection only when the effective model/processing contract matches; failed or incomplete inference is not cached. Similar-looking images with different bytes are distinct inputs.
+
+Admission and writer memory must accommodate the retained publication artifacts. The supplied chart requests should be reviewed against the selected corpus and node capacity; out-of-memory restarts preserve the external durable queue but stop publication progress.

@@ -224,7 +224,15 @@ def checkpoint_records(checkpoint,envelope,document,job,contract,raw_root):
         raise Conflict('Incomplete or invalid source-stage provenance') from e
 
 
-def caption_record(checkpoint,stage,asset,manifest,parent,contract,stage_root):
+def caption_content_identity(record):
+    """Identity shared by image occurrences, never by unrelated parent sources."""
+    proof=record.get('metadata',{}).get('caption_derivation')
+    if not proof:return None
+    return (proof['source_revision_id'],*(full_hash(proof[k]) for k in
+        ('asset_sha256','model_digest','config_digest','embedding_checkpoint_sha256','embedding_config_digest')))
+
+
+def caption_record(checkpoint,stage,asset,manifest,parent,contract,stage_root,*,identity_policy='caption-stage.v1'):
     """Bind one generated annotation to retained pixels and a source admission."""
     try:
         envelope=json.loads(stage['input_envelope']) if isinstance(stage['input_envelope'],str) else stage['input_envelope']
@@ -274,7 +282,17 @@ def caption_record(checkpoint,stage,asset,manifest,parent,contract,stage_root):
         # Preserve the upstream source provenance separately; generated text is
         # never presented as a captured grounded chunk.
         m['provenance']={'canonical_uri':asset['source_uri']}
-        record={'record_id':'caption:'+hashlib.sha256(asset['stage_key'].encode()).hexdigest(),'text':doc['text'],'vector':doc['vector'],'metadata':m}
+        if identity_policy=='parent-image-content.v1':
+            identity={'source_revision_id':parent['source_revision_id'],'asset_sha256':asset['asset_sha256'],
+                'model_digest':full_hash(envelope['model_digest']),'config_digest':full_hash(envelope['config_digest']),
+                'embedding_checkpoint_sha256':contract['embedding_checkpoint_sha256'],'embedding_config_digest':embedding_config_digest}
+            record_id='caption:'+hashlib.sha256(canonical(identity)).hexdigest()
+            proof['record_identity_policy']=identity_policy
+            m['parent_document_id']=asset['document_id']
+            m['content_role']='image_evidence'
+        elif identity_policy=='caption-stage.v1':record_id='caption:'+hashlib.sha256(asset['stage_key'].encode()).hexdigest()
+        else:raise Conflict('Unknown caption record identity policy')
+        record={'record_id':record_id,'text':doc['text'],'vector':doc['vector'],'metadata':m}
         admit({'contract':contract,'records':[record]})
         return record
     except (KeyError,TypeError,ValueError,AttributeError) as e:

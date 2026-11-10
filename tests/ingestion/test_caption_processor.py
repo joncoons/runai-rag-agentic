@@ -77,3 +77,56 @@ class CaptionProcessorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(document['metadata']['content_metadata']['bbox'],bbox)
         self.assertEqual(document['metadata']['caption_provenance']['source_metadata']['fractional_geometry'],bbox)
         self.assertEqual(document['vector'],vector)
+
+
+    async def test_cached_inference_rebuilds_parent_identity_and_acl(self):
+        import json
+        from dataclasses import replace
+        class Cache:
+            value=None
+            async def get_or_compute(self,collection,raw,contract,compute,*,document_id):
+                hit=self.value is not None
+                if not hit:self.value=await compute()
+                return self.value.copy(deep=True),{'cache_key':contract,'cache_hit':hit}
+        self.processor.cache=Cache()
+        async def scope(envelope):return {'collection_id':'test','acl':[envelope.document_id]}
+        self.processor.source_context=scope
+        first=self.envelope();manifest=json.loads(Path(first.artifact_uri.removeprefix('file://')).read_text())
+        manifest.update(document_id='second-document',parent_job_id='second-job')
+        uri,_=retain(self.root,canonical(manifest),'.manifest.json')
+        second=replace(first,job_id='second-job',document_id='second-document',artifact_uri=uri,idempotency_key='sha256:'+'d'*64)
+        def caption(actor,frame):
+            out=frame.copy();out.iloc[0]['images'][0]['text']='Shared pixels';return out
+        with patch('nemo_retriever.operators.extract.caption.caption.CaptionCPUActor.process',autospec=True,side_effect=caption) as infer:
+            results=[await self.processor.process(e) for e in (first,second)]
+        self.assertEqual(infer.call_count,1)
+        checkpoints=[json.loads(Path(x.artifact.temporary_uri.removeprefix('file://')).read_text()) for x in results]
+        self.assertFalse(checkpoints[0]['image_content_reuse']['cache_hit'])
+        self.assertTrue(checkpoints[1]['image_content_reuse']['cache_hit'])
+        for body,doc in zip(checkpoints,['document','second-document']):
+            metadata=body['documents'][0]['metadata']
+            self.assertEqual(metadata['caption_provenance']['document_id'],doc)
+            self.assertEqual(metadata['acl'],[doc])
+
+    async def test_metadata_carried_vector_survives_cache_miss_and_hit(self):
+        import json
+        class MetadataEmbedding:
+            def process(self,frame):
+                out=frame.copy();out['metadata']=[{'embedding':[1.0]+[0.0]*2047} for _ in range(len(out))];return out
+        class Cache:
+            value=None
+            async def get_or_compute(self,collection,raw,contract,compute,*,document_id):
+                hit=self.value is not None
+                if not hit:self.value=await compute()
+                return self.value,{'cache_key':contract,'cache_hit':hit}
+        self.processor.cache=Cache();self.processor.embedding=MetadataEmbedding()
+        async def scope(envelope):return {'collection_id':'test','acl':['operator']}
+        self.processor.source_context=scope
+        def caption(actor,frame):
+            out=frame.copy();out.iloc[0]['images'][0]['text']='Vector fixture';return out
+        with patch('nemo_retriever.operators.extract.caption.caption.CaptionCPUActor.process',autospec=True,side_effect=caption) as infer:
+            for _ in range(2):
+                result=await self.processor.process(self.envelope())
+                checkpoint=json.loads(Path(result.artifact.temporary_uri.removeprefix('file://')).read_text())
+                self.assertEqual(checkpoint['documents'][0]['vector'],[1.0]+[0.0]*2047)
+        self.assertEqual(infer.call_count,1)

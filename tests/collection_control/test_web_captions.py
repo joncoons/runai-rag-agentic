@@ -224,3 +224,11 @@ class WebCaptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({r['record_id'] for r in snapshot['records']},{r['record_id'] for r in original['records']})
         self.assertTrue(all('generated machine description' in r['text'] for r in snapshot['records']))
         self.assertEqual(len(self.calls),2)
+
+
+    async def test_historical_caption_policy_remains_verifiable_at_publication(self):
+        from unittest.mock import patch
+        from collection_control.web_captions import derived_page,LEGACY_POLICY
+        def legacy(*args,**kwargs):return derived_page(*args,**{'policy':LEGACY_POLICY,**kwargs})
+        with patch('collection_control.web_captions.derived_page',side_effect=legacy):
+            await self.test_callback_waits_for_original_receipts_then_replaces_same_page()

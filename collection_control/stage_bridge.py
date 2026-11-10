@@ -134,7 +134,7 @@ class CaptionCollectionRepository:
         self.embedding_config_digest=full_hash(expected_embedding_config_digest) if expected_embedding_config_digest else None
         self.raw_root=Path(raw_root).resolve() if raw_root else None
 
-    async def admit(self,caption_stage_key,result_artifact=None,*,expected_model_digest):
+    async def admit(self,caption_stage_key,result_artifact=None,*,expected_model_digest,identity_policy='parent-image-content.v1'):
         from .provenance import caption_record
         expected_model_digest=full_hash(expected_model_digest)
         async with self.control.pool.acquire() as c,c.transaction():
@@ -184,12 +184,15 @@ class CaptionCollectionRepository:
             checkpoint=json.loads(await asyncio.to_thread(verified_file,self.stage_root,stage['artifact_uri'],stage_sha),object_pairs_hook=_unique_object)
             manifest=json.loads(await asyncio.to_thread(verified_file,self.stage_root,asset['manifest_uri'],asset['manifest_sha256']),object_pairs_hook=_unique_object)
             if self.embedding_config_digest and full_hash(checkpoint['embedding_config_digest'])!=self.embedding_config_digest:raise Conflict('Caption embedding configuration differs from configured embedding')
-            record=await asyncio.to_thread(caption_record,checkpoint,stage,asset,manifest,parent,self.contract,self.stage_root)
-            records=[r for r in base['records'] if r['record_id']!=record['record_id']]+[record]
+            record=await asyncio.to_thread(caption_record,checkpoint,stage,asset,manifest,parent,self.contract,self.stage_root,identity_policy=identity_policy)
+            from .provenance import caption_content_identity
+            identity=caption_content_identity(record)
+            records=[r for r in base['records'] if r['record_id']!=record['record_id'] and
+                (identity_policy!='parent-image-content.v1' or caption_content_identity(r)!=identity)]+[record]
             snapshot={'contract':self.contract,'records':sorted(records,key=lambda r:r['record_id'])}
             snapshot_sha=await asyncio.to_thread(store_snapshot,self.snapshot_root,snapshot)
             op=await ProvenanceRepository(PinnedPool(c)).prepare(self.collection_id,'caption:'+hashlib.sha256(caption_stage_key.encode()).hexdigest(),'snapshot',col['revision'],snapshot_sha,col['contract_sha256'])
-            await c.execute('INSERT INTO collection_control.caption_admissions(stage_key,collection_id,parent_source_stage_key,source_revision_id,record_id,record_sha256,stage_artifact_sha256,envelope_sha256,proof,document_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)',caption_stage_key,self.collection_id,parent['stage_key'] if not capture_proof else None,parent['source_revision_id'],record['record_id'],record_digest(record),stage_sha,envelope_digest(envelope),json.dumps({'stage_root':str(self.stage_root),'contract':self.contract,'capture_only':capture_proof,'supersession':supersession,'admission_operation_id':str(op['operation_id'])}),asset['document_id'])
+            await c.execute('INSERT INTO collection_control.caption_admissions(stage_key,collection_id,parent_source_stage_key,source_revision_id,record_id,record_sha256,stage_artifact_sha256,envelope_sha256,proof,document_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)',caption_stage_key,self.collection_id,parent['stage_key'] if not capture_proof else None,parent['source_revision_id'],record['record_id'],record_digest(record),stage_sha,envelope_digest(envelope),json.dumps({'stage_root':str(self.stage_root),'contract':self.contract,'capture_only':capture_proof,'supersession':supersession,'admission_operation_id':str(op['operation_id']),'record_identity_policy':identity_policy}),asset['document_id'])
             await c.execute("INSERT INTO collection_control.generation_admissions(operation_id,artifact_sha256,content_sha256,row_count,policy_version) VALUES($1,$2,$3,$4,'retained-source-stage.v1')",op['operation_id'],snapshot_sha,content_digest(records),len(records))
             await c.execute('INSERT INTO collection_control.record_lineage(operation_id,record_id,record_sha256,stage_key) SELECT $1,record_id,record_sha256,stage_key FROM collection_control.record_lineage WHERE operation_id=$2 AND record_id=ANY($3::text[])',op['operation_id'],previous['operation_id'],[r['record_id'] for r in records]) if previous else None
             await c.execute('INSERT INTO collection_control.caption_record_lineage(operation_id,record_id,record_sha256,stage_key) SELECT $1,record_id,record_sha256,stage_key FROM collection_control.caption_record_lineage WHERE operation_id=$2 AND record_id<>$3 AND record_id=ANY($4::text[])',op['operation_id'],previous['operation_id'],record['record_id'],[r['record_id'] for r in records]) if previous else None

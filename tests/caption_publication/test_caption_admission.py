@@ -37,13 +37,13 @@ class CaptionAdmissionTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):await self.h.asyncTearDown()
 
-    async def caption(self,number=1,*,manifest_bbox=None,result_bbox=None):
+    async def caption(self,number=1,*,manifest_bbox=None,result_bbox=None,image_number=None):
         from uuid import UUID
         from nv_ingest_durable.contracts import Stage,StageEnvelope
         stage_key='sha256:'+fixtures.sha(('generated-caption-fixture-'+self.env.job_id+str(number)).encode())
         config={'prompt':'Generated qualification image fixture'}
         config_digest=fixtures.sha(canonical(config))
-        image=b'generated fixture image pixels '+str(number).encode()
+        image=b'generated fixture image pixels '+str(number if image_number is None else image_number).encode()
         image_path=self.h.stage_root/('fixture-'+str(number)+'.image');image_path.write_bytes(image)
         source=await self.pool.fetchrow('SELECT * FROM public.documents WHERE document_id=$1',self.env.document_id)
         job_meta=json.loads(await self.pool.fetchval('SELECT metadata FROM public.jobs WHERE job_id=$1',UUID(self.env.job_id)))
@@ -282,3 +282,35 @@ class CaptionAdmissionTests(unittest.IsolatedAsyncioTestCase):
         derived=next(r for r in snapshot['records'] if r['metadata']['origin']=='derived')
         self.assertEqual(derived['metadata']['content_metadata']['bbox'],native)
         self.assertEqual(derived['metadata']['caption_derivation']['geometry_encoding'],'exact_json')
+
+
+    async def test_duplicate_image_regions_keep_associations_but_one_parent_vector(self):
+        await self.h.publish(self.source['operation_id'])
+        keys=[(await self.caption(i,image_number=1))[0] for i in (1,2)]
+        for key in keys:
+            op=await self.bridge.admit(key,expected_model_digest='a'*64)
+            _,snapshot=await self.h.publish(op['operation_id'])
+        captions=[r for r in snapshot['records'] if 'caption_derivation' in r['metadata']]
+        self.assertEqual(len(captions),1)
+        self.assertEqual(captions[0]['metadata']['parent_document_id'],self.env.document_id)
+        self.assertEqual(captions[0]['metadata']['content_role'],'image_evidence')
+        self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM caption_control.assets WHERE parent_job_id::text=$1',self.env.job_id),2)
+        self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM collection_control.caption_admissions'),2)
+        self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM collection_control.caption_record_lineage WHERE operation_id=$1',op['operation_id']),1)
+
+
+    async def test_legacy_vector_is_replaced_by_equivalent_new_image_occurrence(self):
+        await self.h.publish(self.source['operation_id'])
+        first=(await self.caption(1,image_number=1))[0]
+        old=await self.bridge.admit(first,expected_model_digest='a'*64,identity_policy='caption-stage.v1')
+        await self.h.publish(old['operation_id'])
+        # Seed the exact historical proof layout before the identity policy field.
+        await self.pool.execute("UPDATE collection_control.caption_admissions SET proof=proof-'record_identity_policy' WHERE stage_key=$1",first)
+        second=(await self.caption(2,image_number=1))[0]
+        current=await self.bridge.admit(second,expected_model_digest='a'*64)
+        _,snapshot=await self.h.publish(current['operation_id'])
+        captions=[r for r in snapshot['records'] if 'caption_derivation' in r['metadata']]
+        self.assertEqual(len(captions),1)
+        self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM caption_control.assets WHERE parent_job_id::text=$1',self.env.job_id),2)
+        self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM collection_control.caption_admissions'),2)
+        self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM collection_control.caption_record_lineage WHERE operation_id=$1',old['operation_id']),1)

@@ -22,9 +22,27 @@ from .caption_repository import CaptionManifestRepository,PermanentImageError
 from .deferred_caption import verified_file,canonical,digest
 
 
+def validate_caption_inference(frame):
+    """Grant reuse only to one complete, publication-compatible inference."""
+    import math,struct
+    from .elasticsearch_writer import compact_checkpoint,validate_documents
+    if len(frame)!=1:raise ValueError('Caption inference must produce exactly one result')
+    body=compact_checkpoint(frame.to_dict(orient='records'),'source-neutral-validation')
+    if len(body['documents'])!=1:raise ValueError('Caption inference must produce one embedded caption')
+    validate_documents(body['documents'],expected_dimensions=2048)
+    doc=body['documents'][0]
+    if not isinstance(doc['text'],str) or not doc['text'].strip():raise ValueError('Caption inference must include text')
+    vector=doc['vector']
+    if any(isinstance(x,bool) or not isinstance(x,(float,int)) or not math.isfinite(x) for x in vector):raise ValueError('Caption embedding must be finite')
+    norm=math.sqrt(sum(x*x for x in struct.unpack('<2048f',struct.pack('<2048f',*vector))))
+    if abs(norm-1)>1e-4:raise ValueError('Caption embedding must have unit norm')
+    return frame
+
+
 class CaptionProcessor:
-    def __init__(self,root,caption_params,embedding,model_digest,source_context=None):
+    def __init__(self,root,caption_params,embedding,model_digest,source_context=None,cache=None):
         self.root=Path(root);self.params=caption_params;self.embedding=embedding;self.model_digest=model_digest;self.source_context=source_context
+        self.cache=cache
         self.stager=JsonResultStager(self.root)
         self.embedding_contract={'dimensions':2048,'dtype':'float32','normalization':'unit','metric':'IP','schema_version':1,'embedding_checkpoint_sha256':os.environ.get('EMBED_MODEL_DIGEST','').removeprefix('sha256:')}
 
@@ -51,19 +69,40 @@ class CaptionProcessor:
         except Exception as exc:
             raise PermanentImageError('Retained image is corrupt or unsupported') from exc
         source_scope=await self.source_context(envelope) if self.source_context else {}
-        item={'image_b64':base64.b64encode(raw).decode(),'text':''}
-        actor=CaptionCPUActor(self.params.model_copy(update={**manifest['caption_config'],'caption_infographics':False,'batch_size':1}))
-        response=await asyncio.to_thread(actor.process,pd.DataFrame([{'images':[item]}]))
-        caption=response.iloc[0]['images'][0].get('text')
-        if not isinstance(caption,str) or not caption.strip():raise RuntimeError('Caption endpoint returned an empty caption')
+        effective=self.params.model_copy(update={**manifest['caption_config'],'caption_infographics':False,'batch_size':1})
+        async def compute():
+            item={'image_b64':base64.b64encode(raw).decode(),'text':''}
+            actor=CaptionCPUActor(effective)
+            response=await asyncio.to_thread(actor.process,pd.DataFrame([{'images':[item]}]))
+            caption=response.iloc[0]['images'][0].get('text')
+            if not isinstance(caption,str) or not caption.strip():raise RuntimeError('Caption endpoint returned an empty caption')
+            # Only source-neutral model outputs are reusable. Build parent/ACL
+            # metadata below for every independently fenced consumer.
+            frame=await asyncio.to_thread(self.embedding.process,pd.DataFrame([{'text':caption,'metadata':{},'_content_type':'image_caption'}]))
+            return validate_caption_inference(frame)
+        reuse=None
+        if self.cache:
+            from importlib.metadata import version
+            embedding_params=getattr(self.embedding,'params',None)
+            contract={'schema':'image-caption-inference.v1','pipeline':envelope.pipeline_version,
+                'caption_model':self.model_digest,'caption_params':effective.model_dump(mode='json'),
+                'embedding':self.embedding_contract,'embedding_config':os.environ.get('EMBED_CONFIG_DIGEST',''),
+                'embedding_params':embedding_params.model_dump(mode='json') if embedding_params else None,
+                'library':version('nemo-retriever'),'adapter':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+            contract_sha=digest(canonical(contract))
+            result,reuse=await self.cache.get_or_compute(source_scope['collection_id'],manifest['asset_sha256'].removeprefix('sha256:'),contract_sha,compute,document_id=envelope.document_id)
+        else:result=await compute()
+        validate_caption_inference(result)
         metadata={'source':{'source_id':envelope.idempotency_key},'content_metadata':{'type':'image_caption','page_number':manifest['page_number'],'bbox':manifest['bbox'],'generated_annotation':True},'acl':source_scope.get('acl',[]),'caption_provenance':{'source_context':source_scope,'parent_job_id':envelope.job_id,'document_id':envelope.document_id,'parent_stage_key':manifest['parent_stage_key'],'asset_sha256':manifest['asset_sha256'],'asset_uri':manifest['asset_uri'],'source_metadata':manifest['source_metadata'],'model_digest':envelope.model_digest,'config_digest':envelope.config_digest}}
-        result=await asyncio.to_thread(self.embedding.process,pd.DataFrame([{'text':caption,'metadata':metadata,'_content_type':'image_caption'}]))
+        result=result.copy(deep=True)
+        result['metadata']=[{**metadata,**({'embedding':m['embedding']} if isinstance(m,dict) and 'embedding' in m else {})} for m in result['metadata']]
         rows=result.to_dict(orient='records')
         checkpoint=compact_checkpoint(rows,envelope.document_id);validate_documents(checkpoint['documents'],expected_dimensions=2048)
         checkpoint['embedding_contract']=self.embedding_contract
         checkpoint['embedding_config_digest']=os.environ.get('EMBED_CONFIG_DIGEST','')
         checkpoint['caption_text_sha256']=hashlib.sha256(checkpoint['documents'][0]['text'].encode()).hexdigest()
         checkpoint['caption_asset_sha256']=manifest['asset_sha256'];checkpoint['publication_admitted']=False
+        if reuse:checkpoint['image_content_reuse']=reuse
         artifact,_=await self.stager.stage(envelope,checkpoint)
         ready=replace(envelope,stage=Stage.INDEX,artifact_uri=artifact.final_uri)
         return StageResult(artifact=artifact,downstream=((stream_name('caption.results'),ready),))
@@ -98,8 +137,10 @@ async def run():
     repository=CaptionManifestRepository(PostgresManifestRepository(pool),root)
     await pool.fetchval('SELECT count(*) FROM caption_control.assets')
     params,embed=_model_params()
-    embedding=RemoteEmbedding(embed,checkpoint=os.environ['EMBED_CHECKPOINT_DIR'],expected_files=json.loads(Path(os.environ.get('EMBED_INPUT_CONTRACT', str(Path(__file__).with_name('embedding-input-contract.json')))).read_text()))
-    processor=CaptionProcessor(root,params,embedding,_digest("CAPTION_MODEL_DIGEST"),repository.source_context)
+    embedding=RemoteEmbedding(embed,checkpoint=os.environ['EMBED_CHECKPOINT_DIR'],expected_files=json.loads(Path(__file__).with_name('embedding-input-contract.json').read_text()))
+    from application.image_caption_cache import ImageCaptionCache
+    await pool.fetchval('SELECT count(*) FROM application.image_caption_cache')
+    processor=CaptionProcessor(root,params,embedding,_digest("CAPTION_MODEL_DIGEST"),repository.source_context,ImageCaptionCache(pool,root))
     consumer=socket.gethostname()+'-caption'
     native=DurableStageWorker(owner=consumer,manifests=repository,artifacts=FileArtifactStore(root),processor=processor,transport=transport,lease_ttl=timedelta(seconds=180),heartbeat_interval=20,max_attempts=4,deadletter_stream=stream_name('caption.deadletter'))
     worker=CaptionStageWorker(native,repository)

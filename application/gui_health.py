@@ -34,6 +34,10 @@ GUI_SOURCE_CTES = '''WITH gui_live AS (
  JOIN application.web_asset_references ref USING(download_id)
  JOIN gui_parents parent ON parent.source_revision_id=ref.parent_source_revision_id
  GROUP BY download.collection_id,download.child_source_revision_id,download.requested_uri
+), gui_legacy_scopes AS MATERIALIZED (
+ SELECT parent.web_group_id,bool_or(j.metadata @> '{"ingestion_options":{"captions_enabled":true}}'::jsonb) AS needs_captions
+ FROM gui_parents parent JOIN public.jobs j ON j.job_id=parent.job_id
+ WHERE parent.web_group_id IS NOT NULL GROUP BY parent.web_group_id
 ), gui_child_links AS (
  SELECT r.source_revision_id,e.needs_captions FROM gui_live r
  JOIN gui_edges e ON e.child_source_revision_id=r.source_revision_id AND e.collection_id=r.collection_id
@@ -43,9 +47,8 @@ GUI_SOURCE_CTES = '''WITH gui_live AS (
  JOIN gui_edges e ON e.requested_uri=r.canonical_uri AND e.collection_id=r.collection_id
  WHERE r.web_role='binary' AND r.source_revision_id=r.current_revision_id
  UNION ALL
- SELECT r.source_revision_id,(j.metadata @> '{"ingestion_options":{"captions_enabled":true}}'::jsonb) AS needs_captions
- FROM gui_live r JOIN gui_parents parent ON parent.web_group_id=r.web_group_id
- JOIN public.jobs j ON j.job_id=parent.job_id
+ SELECT r.source_revision_id,scope.needs_captions
+ FROM gui_live r JOIN gui_legacy_scopes scope USING(web_group_id)
  WHERE r.web_role IN ('image','binary') AND r.web_group_id IS NOT NULL
 ), gui_children AS (
  SELECT source_revision_id,bool_or(needs_captions) AS needs_captions FROM gui_child_links GROUP BY source_revision_id
@@ -53,8 +56,8 @@ GUI_SOURCE_CTES = '''WITH gui_live AS (
  SELECT * FROM gui_base
  UNION ALL
  SELECT r.* FROM gui_live r JOIN gui_children child USING(source_revision_id)
-), gui_caption_sources AS (
- SELECT r.document_id FROM gui_sources r LEFT JOIN gui_children child USING(source_revision_id)
+), gui_caption_sources AS MATERIALIZED (
+ SELECT r.* FROM gui_sources r LEFT JOIN gui_children child USING(source_revision_id)
  WHERE r.web_role IS NULL OR r.web_role='page' OR child.needs_captions
 )'''
 
@@ -68,8 +71,7 @@ CAPTION_ROWS = '''SELECT a.stage_key,a.parent_job_id,a.collection_id,a.document_
       WHEN s.status IN ('running','processing','leased') THEN 'processing'
       ELSE 'queued' END AS status
  FROM caption_control.assets a
- JOIN gui_sources r ON r.document_id=a.document_id AND r.collection_id=a.collection_id
- JOIN gui_caption_sources cs ON cs.document_id=a.document_id
+ JOIN gui_caption_sources r ON r.document_id=a.document_id AND r.collection_id=a.collection_id
  LEFT JOIN public.stage_units s ON s.idempotency_key=a.stage_key
  LEFT JOIN application.caption_publications p ON p.caption_stage_key=a.stage_key
  WHERE COALESCE(p.last_error_type,'') NOT IN ('StaleWebImage','SupersededSource','CollectionDeleted')

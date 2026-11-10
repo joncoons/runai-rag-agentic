@@ -198,18 +198,20 @@ from application.gui_health import GUI_SOURCE_CTES,CAPTION_ROWS,CAPTION_STATES,S
 COLLECTIONS_SQL = GUI_SOURCE_CTES + ''', latest AS (
     SELECT DISTINCT ON (collection_id,source_id) collection_id,source_id,document_id,status,web_role
     FROM gui_sources ORDER BY collection_id,source_id,observed_at DESC,source_revision_id DESC
+), extracted_documents AS MATERIALIZED (
+ SELECT DISTINCT document_id FROM public.stage_units WHERE stage='extraction' AND status='committed'
 ), captions AS (''' + CAPTION_ROWS + ''')
 SELECT a.name,a.requested_milvus,c.collection_id,c.revision,c.milvus_enabled,c.current_operation,
     (SELECT count(*) FROM latest r WHERE r.collection_id=c.collection_id AND r.web_role IS DISTINCT FROM 'image') AS documents,
     (SELECT count(DISTINCT source_id) FROM gui_sources r WHERE r.collection_id=c.collection_id AND r.source_revision_id=r.current_revision_id AND r.status='published' AND r.web_role IS DISTINCT FROM 'image') AS published_documents,
     (SELECT count(*) FROM latest r WHERE r.collection_id=c.collection_id AND r.status IN ('queued','admitting','admitted','publishing')) AS source_pending,
-    (SELECT count(*) FROM latest r WHERE r.collection_id=c.collection_id AND r.status='queued' AND EXISTS(SELECT 1 FROM public.stage_units s WHERE s.document_id=r.document_id AND s.stage='extraction' AND s.status='committed')) AS admission_waiting,
+    (SELECT count(*) FROM latest r WHERE r.collection_id=c.collection_id AND r.status='queued' AND r.document_id IN (SELECT document_id FROM extracted_documents)) AS admission_waiting,
     (SELECT count(*) FROM latest r WHERE r.collection_id=c.collection_id AND r.status='failed') AS source_failed,
     EXISTS(SELECT 1 FROM collection_control.operations o WHERE o.collection_id=c.collection_id AND o.status='pending') AS mutation_pending,
     (SELECT count(*) FROM collection_control.operations o WHERE o.collection_id=c.collection_id AND o.status='pending') AS mutation_pending_count,
     (SELECT count(*) FROM captions p WHERE p.collection_id=c.collection_id AND p.status IN ('queued','processing','publishing')) AS caption_pending,
     (SELECT count(*) FROM captions p WHERE p.collection_id=c.collection_id AND p.status='failed') AS caption_failed,
-    (SELECT COALESCE(jsonb_agg(jsonb_build_object('stage_key',p.stage_key,'asset_sha256',p.asset_sha256,'status',p.status,'inference_status',p.inference_status,'origin',CASE WHEN p.source_kind='pdf' THEN 'pdf' WHEN p.web_role='image' THEN 'webpage' ELSE 'other' END)),'[]'::jsonb) FROM captions p WHERE p.collection_id=c.collection_id) AS caption_origin_rows
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('stage_key',p.stage_key,'asset_sha256',p.asset_sha256,'status',p.status,'inference_status',p.inference_status,'origin',CASE WHEN p.source_kind='pdf' THEN 'pdf' WHEN p.web_role='image' THEN 'webpage' ELSE 'other' END) || CASE WHEN p.status='failed' THEN jsonb_build_object('manifest_uri',p.manifest_uri,'manifest_sha256',p.manifest_sha256,'asset_sha256',p.asset_sha256) ELSE '{}'::jsonb END),'[]'::jsonb) FROM captions p WHERE p.collection_id=c.collection_id) AS caption_origin_rows
 FROM application.collections a JOIN collection_control.collections c USING(collection_id)
 WHERE NOT c.deleted ORDER BY a.created_at,c.collection_id'''
 
@@ -272,11 +274,14 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
 
     @app.get('/api/collections')
     async def collections(request: Request):
-        rows = await _context(request).pool.fetch(COLLECTIONS_SQL)
+        rows = [dict(row) for row in await _context(request).pool.fetch(COLLECTIONS_SQL)]
+        for row in rows:
+            origins=row.get('caption_origin_rows') or []
+            row['caption_origin_rows']=json.loads(origins) if isinstance(origins,str) else origins
         result = []
         failed_counts=None;visible_failed_keys=None
         if any(row['caption_failed'] for row in rows):
-            failed=await _context(request).pool.fetch('SELECT * FROM ('+CAPTION_STATES+") current_captions WHERE status='failed'")
+            failed=[{**caption,'collection_id':row['collection_id']} for row in rows for caption in row['caption_origin_rows'] if caption['status']=='failed']
             visible=await visible_captions(_context(request).settings,failed)
             failed_counts={};visible_failed_keys={item['stage_key'] for item in visible}
             for item in visible:failed_counts[item['collection_id']]=failed_counts.get(item['collection_id'],0)+1
@@ -293,7 +298,7 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
                 'status': state, 'generation': row['revision'], 'documents': row['documents'],
                 'published_documents':row.get('published_documents',row['documents']),
                 'elasticsearch_status':'ready' if row['current_operation'] else 'indexing' if row['mutation_pending'] else 'empty',
-                'processing':{'sources_pending':row['source_pending'],'sources_failed':row['source_failed'],'admission_waiting':row.get('admission_waiting',0),'captions_pending':row['caption_pending'],'captions_generated':sum(v['generated'] for v in origin_summary.values()),'publication_pending':row['mutation_pending'],'publication_pending_operations':row.get('mutation_pending_count',int(bool(row['mutation_pending'])))},
+                'processing':{'sources_pending':row['source_pending'],'sources_failed':row['source_failed'],'admission_waiting':row.get('admission_waiting',0),'captions_pending':sum(v['queued']+v['generating'] for v in origin_summary.values()),'captions_awaiting_publication':sum(v['publishing'] for v in origin_summary.values()),'captions_generated':sum(v['generated'] for v in origin_summary.values()),'publication_pending':row['mutation_pending'],'publication_pending_operations':row.get('mutation_pending_count',int(bool(row['mutation_pending'])))},
                 'image_origins':origin_summary,
                 'caption_pending': row['caption_pending'], 'caption_failed': failed_counts.get(row['collection_id'],0) if failed_counts is not None else row['caption_failed']})
         return {'collections': result}

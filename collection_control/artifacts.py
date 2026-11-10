@@ -44,7 +44,7 @@ def admit(artifact):
             if m['origin']=='derived' and 'web_enrichment_derivation' in m:
                 from .web_captions import captioned_text
                 proof=m['web_enrichment_derivation']
-                if proof.get('policy')!='retained-web-enrichment.v2' or proof.get('parent_record_id')!=r['record_id'] or proof.get('source_revision_id')!=m['source_revision_id'] or proof.get('text_sha256')!=m['content_sha256'] or proof.get('embedding_checkpoint_sha256')!=c['embedding_checkpoint_sha256'] or not proof.get('parent_stage_key') or m.get('generated_annotation') is not bool(proof.get('captions')):
+                if proof.get('policy') not in ('retained-web-enrichment.v2','retained-web-enrichment.v3') or proof.get('parent_record_id')!=r['record_id'] or proof.get('source_revision_id')!=m['source_revision_id'] or proof.get('text_sha256')!=m['content_sha256'] or proof.get('embedding_checkpoint_sha256')!=c['embedding_checkpoint_sha256'] or not proof.get('parent_stage_key') or m.get('generated_annotation') is not bool(proof.get('captions')):
                     raise Conflict('Derived web page requires explicit native/caption dependency proof')
                 digest(proof['parent_record_sha256']);digest(proof['embedding_config_digest'])
                 images=proof['images']
@@ -55,9 +55,9 @@ def admit(artifact):
                 if proof['captions']:captioned_text('',proof['captions'])
                 if not images and not proof['captions']:raise Conflict('Enrichment requires retained image or caption dependencies')
             elif m['origin']=='derived' and 'web_caption_derivation' in m:
-                from .web_captions import POLICY, captioned_text
+                from .web_captions import POLICY, LEGACY_POLICY, captioned_text
                 proof=m['web_caption_derivation']
-                if proof.get('policy')!=POLICY or m.get('generated_annotation') is not True or proof.get('parent_record_id')!=r['record_id'] or proof.get('source_revision_id')!=m['source_revision_id'] or proof.get('text_sha256')!=m['content_sha256'] or proof.get('embedding_checkpoint_sha256')!=c['embedding_checkpoint_sha256'] or not proof.get('parent_stage_key'):
+                if proof.get('policy') not in (POLICY,LEGACY_POLICY) or m.get('generated_annotation') is not True or proof.get('parent_record_id')!=r['record_id'] or proof.get('source_revision_id')!=m['source_revision_id'] or proof.get('text_sha256')!=m['content_sha256'] or proof.get('embedding_checkpoint_sha256')!=c['embedding_checkpoint_sha256'] or not proof.get('parent_stage_key'):
                     raise Conflict('Derived web page requires original parent and explicit caption proof')
                 digest(proof['parent_record_sha256']);digest(proof['embedding_config_digest'])
                 captioned_text('',proof['captions'])

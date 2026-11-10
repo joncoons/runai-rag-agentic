@@ -4,7 +4,7 @@
   "screenshots": [
     {
       "path": "docs/gui/images/01-collections.png",
-      "sha256": "d4bbdce602271385355b9501697b45d2f0e5c42fab0212dec208472dfdb0bcd8",
+      "sha256": "95141d5f071817931f25a007757bf2ef5ee3f866da4d96a7b1daf68e12547bf4",
       "width": 1440,
       "height": 1040
     },
@@ -16,13 +16,13 @@
     },
     {
       "path": "docs/gui/images/03-collection-overview.png",
-      "sha256": "807cee9b70d4aa41cb3e2a7d3b29479bc9d7fd50d2fe8f8c98161008cba5fdd7",
+      "sha256": "09d96b63bc31e014ac243d0f936e4de43a89c2bdb128604fb465be3bd9506ce4",
       "width": 1440,
       "height": 1040
     },
     {
       "path": "docs/gui/images/04-saved-sources.png",
-      "sha256": "eeecd2e5b313b0c5d9c02204c34915009103dd10d75ffa9956dcfa52f98e96d0",
+      "sha256": "d06153d55e7de7176a9e95ab6a8794722447b6cec1c941f4f30f8b544aa8208d",
       "width": 1440,
       "height": 1040
     },
@@ -52,7 +52,7 @@
     },
     {
       "path": "docs/gui/images/08-directory-source.png",
-      "sha256": "279de3f7bb5c4a24881979b67465e6d0e03a3225b8e46155a92c1bc7d6d11f84",
+      "sha256": "ef2501437ce711ecca306c773e1ce06e958376cf5c89e1b915f9514695eed809",
       "width": 1440,
       "height": 1040
     },
@@ -64,19 +64,19 @@
     },
     {
       "path": "docs/gui/images/10-document-url.png",
-      "sha256": "dd89a01523b3be267cfb8cbe09d6ecb5338ffa97ce15b633d50d4a5b72ade08d",
+      "sha256": "00bf3842924cc1d9be659656e380384ff7d75c60af6b7bd62f8ee913a1005522",
       "width": 1440,
       "height": 1040
     },
     {
       "path": "docs/gui/images/11-edit-source-schedule.png",
-      "sha256": "52559078bd0d31ee83af846ae160d7e48f6a42fee2bbf654479a2a4240eae969",
+      "sha256": "dcdef04eed3a862dabdeb85d159bb5f1b4ad0fa0cb2f3564c39550d7e6e0bcb9",
       "width": 1440,
       "height": 1040
     },
     {
       "path": "docs/gui/images/12-ingestion-progress.png",
-      "sha256": "12b9e6f025177982edeeb2610d6fb611505690ae20afbbf50492cbffcde30474",
+      "sha256": "a49c5fb29bd709d62c1faa6f565d124fe85e47772fa93d69448a90526a0b0735",
       "width": 1440,
       "height": 1040
     },

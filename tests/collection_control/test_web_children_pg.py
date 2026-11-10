@@ -24,6 +24,9 @@ class WebChildrenTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         await groups.WebGroupTests.asyncSetUp(self)
         await self.pool.execute(Path('deployment/collection-control/005_web_children.sql').read_text())
+        # Match the deployed typed-source identity: identical content may have
+        # distinct source revisions within one job.
+        await self.pool.execute('ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS documents_job_id_source_digest_key')
 
     async def asyncTearDown(self):await groups.WebGroupTests.asyncTearDown(self)
 
