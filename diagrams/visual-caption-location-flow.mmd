@@ -1,35 +1,35 @@
 flowchart TD
-    ADMIN[Admin / local sign in] --> ROOTS[Versioned PostgreSQL aliases / audit]
-    MOUNTS[Operator read-only source mounts] --> ROOTS
+    ADMIN["Admin / local sign in"] --> ROOTS["Versioned PostgreSQL aliases /<br/>audit"]
+    MOUNTS["Operator read-only source mounts"] --> ROOTS
     ROOTS -->|enabled aliases only| LOC
-    UI[Open or create collection] --> UP[Upload files]
-    UI --> LOC[Registered directory or direct document URI]
-    UI --> WEB[Website scope and depth]
-    LOC --> RUN[PG saved source and leased run]
+    UI["Open or create collection"] --> UP["Upload files"]
+    UI --> LOC["Registered directory or direct<br/>document URI"]
+    UI --> WEB["Website scope and depth"]
+    LOC --> RUN["PG saved source and leased run"]
     WEB --> RUN
-    RUN --> CAP[Complete retained acquisition and checksum observations]
-    CAP --> SAME{Current published evidence unchanged?}
-    SAME -->|yes| OBS[Record unchanged observation; no model work]
-    SAME -->|missing only| REVIEW[Record missing review; retain publication]
-    SAME -->|new or changed| INTAKE[Atomic PG job / revisions / outbox]
+    RUN --> CAP["Complete retained acquisition<br/>and checksum observations"]
+    CAP --> SAME{"Current published evidence<br/>unchanged?"}
+    SAME -->|yes| OBS["Record unchanged observation; no<br/>model work"]
+    SAME -->|missing only| REVIEW["Record missing review; retain<br/>publication"]
+    SAME -->|new or changed| INTAKE["Atomic PG job / revisions /<br/>outbox"]
     UP --> INTAKE
-    INTAKE --> STREAM[Redis Streams]
-    STREAM --> NATIVE[Native PDF / typed / whole-page extraction]
-    NATIVE --> OFFICE[Office original structure plus retained visual derivatives]
-    NATIVE --> PAGE[One grounded webpage record]
-    OFFICE --> PROOF[Immutable stages and independent proof admission]
+    INTAKE --> STREAM["Redis Streams"]
+    STREAM --> NATIVE["Native PDF / typed / whole-page<br/>extraction"]
+    NATIVE --> OFFICE["Office original structure plus<br/>retained visual derivatives"]
+    NATIVE --> PAGE["One grounded webpage record"]
+    OFFICE --> PROOF["Immutable stages and independent<br/>proof admission"]
     PAGE --> PROOF
-    PAGE --> OPT{User enabled image captions?}
-    OPT -->|yes| QUEUE[PG CAPTION assets and Redis; four attempts with backoff]
-    QUEUE --> RESULT[Retained Omni result; isolate failed image]
-    RESULT --> FENCE[Verify current page/image associations and opt-in]
-    FENCE --> PARENT[Reembed original parent plus labeled captions; one page vector]
+    PAGE --> OPT{"User enabled image captions?"}
+    OPT -->|yes| QUEUE["PG CAPTION assets and Redis;<br/>four attempts with backoff"]
+    QUEUE --> RESULT["Retained Omni result; isolate<br/>failed image"]
+    RESULT --> FENCE["Verify current page/image<br/>associations and opt-in"]
+    FENCE --> PARENT["Reembed original parent plus<br/>labeled captions; one page<br/>vector"]
     PARENT --> PROOF
-    PROOF --> SNAP[Immutable full collection snapshot]
-    SNAP --> WRITER[Independent VDB writer]
-    WRITER --> ES[Elasticsearch always]
-    WRITER --> MV[Optional Milvus GPU_CAGRA]
-    ES --> RECEIPT[Verify selected receipts and matching content/vector hashes]
+    PROOF --> SNAP["Immutable full collection<br/>snapshot"]
+    SNAP --> WRITER["Independent VDB writer"]
+    WRITER --> ES["Elasticsearch always"]
+    WRITER --> MV["Optional Milvus GPU_CAGRA"]
+    ES --> RECEIPT["Verify selected receipts and<br/>matching content/vector hashes"]
     MV --> RECEIPT
-    RECEIPT --> PG[Atomic PostgreSQL current pointer and graph publication]
-    PG --> QUERY[Scoped retrieval / MCP]
+    RECEIPT --> PG["Atomic PostgreSQL current<br/>pointer and graph publication"]
+    PG --> QUERY["Scoped retrieval / MCP"]

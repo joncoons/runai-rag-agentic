@@ -1,13 +1,13 @@
 flowchart TD
-    OBS[Complete page and asset observation]
-    DIFF[Diff committed dependency manifest]
-    PG[(PostgreSQL revisions / edges / operations / outbox)]
-    PROC[Nv-ingest changed assets and rebuild parent evidence]
-    STAGE[Stage page / owned documents / ES and optional Milvus]
-    PUB[Atomic PostgreSQL publication: VDB handles and asset manifest]
-    READ[Managed query and asset-serving gate]
-    GC[Reference / retention / reader / job gates]
-    PURGE[Fenced physical purge and durable receipt]
+    OBS["Complete page and asset<br/>observation"]
+    DIFF["Diff committed dependency<br/>manifest"]
+    PG[("PostgreSQL revisions / edges /<br/>operations / outbox")]
+    PROC["Nv-ingest changed assets and<br/>rebuild parent evidence"]
+    STAGE["Stage page / owned documents /<br/>ES and optional Milvus"]
+    PUB["Atomic PostgreSQL publication:<br/>VDB handles and asset manifest"]
+    READ["Managed query and asset-serving<br/>gate"]
+    GC["Reference / retention / reader /<br/>job gates"]
+    PURGE["Fenced physical purge and<br/>durable receipt"]
     OBS --> DIFF
     DIFF --> PG
     PG --> PROC

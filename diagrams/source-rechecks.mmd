@@ -1,18 +1,18 @@
 flowchart TD
-    U[Collection: save website scope and optional daily window]
-    P[(PostgreSQL source versions and run ledger)]
-    T[Run:ai CPU refresh coordinator]
-    L[Per-source claim, deadline and fencing]
-    A[Bounded full-byte pages and selected assets]
-    O[(Immutable observation files and SHA256 manifest)]
-    C{Fingerprint matches current published evidence?}
-    N[Collection-locked unchanged result: no job or models]
-    I[Atomic accepted run, group, job, revisions and outbox]
-    R[Redis Streams and native ingestion workers]
-    V[Independent ES and optional Milvus writer]
-    G[PostgreSQL receipt and publication gate]
-    B[Published accepted run advances comparison baseline]
-    F[Failed/incomplete scan: retain outcome and prior publication]
+    U["Collection: save website scope<br/>and optional daily window"]
+    P[("PostgreSQL source versions and<br/>run ledger")]
+    T["Run:ai CPU refresh coordinator"]
+    L["Per-source claim, deadline and<br/>fencing"]
+    A["Bounded full-byte pages and<br/>selected assets"]
+    O[("Immutable observation files and<br/>SHA256 manifest")]
+    C{"Fingerprint matches current<br/>published evidence?"}
+    N["Collection-locked unchanged<br/>result: no job or models"]
+    I["Atomic accepted run, group, job,<br/>revisions and outbox"]
+    R["Redis Streams and native<br/>ingestion workers"]
+    V["Independent ES and optional<br/>Milvus writer"]
+    G["PostgreSQL receipt and<br/>publication gate"]
+    B["Published accepted run advances<br/>comparison baseline"]
+    F["Failed/incomplete scan: retain<br/>outcome and prior publication"]
     U --> P --> T --> L --> A --> O --> C
     C -->|unchanged| N --> P
     C -->|new, changed or processing identity changed| I --> R --> V --> G --> B --> P

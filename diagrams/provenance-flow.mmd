@@ -3,14 +3,14 @@ flowchart TD
     revision["Source revision<br/>Retained raw / normalized refs<br/>SHA-256 + previous revision<br/>HTTP / canonical URI metadata"]
     chunk["Extraction + chunks<br/>Page, bbox, span, time anchors<br/>Parser / chunker / model config<br/>Exact text hash + upstream IDs"]
     gate["Provenance admission<br/>Schema + referential integrity<br/>Hash verification + coverage<br/>Unverified data quarantined"]
-    index["ES + optional CAGRA index<br/>Shared revision / chunk identities<br/>Per-store readiness + watermark"]
+    index["ES + optional CAGRA index<br/>Shared revision / chunk<br/>identities<br/>Per-store readiness + watermark"]
     mcp["MCP evidence tools<br/>Bounded text / page images<br/>Preserve revision + chunk IDs<br/>Scope enforced by server"]
     answer["Agent / answer record<br/>Cited evidence IDs + query<br/>Model / prompt / route identity<br/>Claims checked against sources"]
     delta["Recrawl / delta lifecycle<br/>New revisions; retain history<br/>Revalidate changed evidence<br/>Supersede / retract explicitly"]
     entailed["Source-grounded derivation<br/>Entailments + evidence spans<br/>Extractor / validator versions<br/>Preserve source-revision joins"]
     synthetic["Synthetic gap-fill lineage<br/>Gap + generator job + config<br/>Seed references; explicit origin<br/>Separate from source evidence"]
     dataset["Dataset version manifest<br/>Explicit grounded / mixed role<br/>Input IDs, split policy, hashes<br/>Immutable version identity"]
-    register["Downstream reuse<br/>Training / evaluation registration<br/>Data Store ledger artifacts<br/>Entity / MLflow pointers"]
+    register["Downstream reuse<br/>Training / evaluation<br/>registration<br/>Data Store ledger artifacts<br/>Entity / MLflow pointers"]
     source --> revision
     revision --> chunk
     chunk --> gate

@@ -1,26 +1,26 @@
 flowchart TD
-  W[Original queued webcrawler — scoped unlimited depth] --> P[HTML page discovery]
-  P --> T[PostgreSQL transaction: page receipt + text job + asset intents; no corpus publication validation]
-  T --> Q[Redis: page extraction]
-  Q --> E[Whole-page embedding]
-  E --> A[Ready-page admission; bounded proof-preserving batches]
-  A --> V[Incremental immutable record-version writer]
-  V --> ES[Elasticsearch receipt]
-  V --> MV[Optional Milvus strong-visibility receipt]
-  ES --> PG[PostgreSQL authorized-version switch]
+  W["Original queued webcrawler —<br/>scoped unlimited depth"] --> P["HTML page discovery"]
+  P --> T["PostgreSQL transaction: page<br/>receipt + text job + asset<br/>intents; no corpus publication<br/>validation"]
+  T --> Q["Redis: page extraction"]
+  Q --> E["Whole-page embedding"]
+  E --> A["Ready-page admission; bounded<br/>proof-preserving batches"]
+  A --> V["Incremental immutable<br/>record-version writer"]
+  V --> ES["Elasticsearch receipt"]
+  V --> MV["Optional Milvus<br/>strong-visibility receipt"]
+  ES --> PG["PostgreSQL authorized-version<br/>switch"]
   MV --> PG
-  T --> D[Redis: deferred download work]
-  D --> L[Leased downloads — bounded retries]
-  L --> B[Binary extraction]
-  L --> I[NV-Ingest image extraction]
-  B --> AA[Asset admission — exact current parent fence]
+  T --> D["Redis: deferred download work"]
+  D --> L["Leased downloads — bounded<br/>retries"]
+  L --> B["Binary extraction"]
+  L --> I["NV-Ingest image extraction"]
+  B --> AA["Asset admission — exact current<br/>parent fence"]
   I --> AA
   AA --> V
-  I --> C{Caption enabled and native minimum met?}
-  C --> CQ[Redis: independent caption inference]
-  CQ --> CA[Caption admission — current parent + consent fence]
+  I --> C{"Caption enabled and native<br/>minimum met?"}
+  C --> CQ["Redis: independent caption<br/>inference"]
+  CQ --> CA["Caption admission — current<br/>parent + consent fence"]
   CA --> V
-  AA --> U[Same page record enrichment or independent binary records]
+  AA --> U["Same page record enrichment or<br/>independent binary records"]
   CA --> U
 
-  PG --> R[Search filters exact published versions before top-k]
+  PG --> R["Search filters exact published<br/>versions before top-k"]
