@@ -1,0 +1,103 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "nvcr.io/nim/nvidia/nemotron-3.5-super-vl-120b-a12b:latest",
+      "imagePullPolicy": "Always",
+      "env": [
+        {
+          "name": "NIM_MODEL_PROFILE",
+          "value": "${MODEL_PROFILE}"
+        },
+        {
+          "name": "NIM_SERVED_MODEL_NAME",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "NIM_CACHE_PATH",
+          "value": "/opt/nim/.cache"
+        },
+        {
+          "name": "NIM_WRITABLE_ROOT",
+          "value": "/opt/cache"
+        },
+        {
+          "name": "NIM_LOG_LEVEL",
+          "value": "INFO"
+        },
+        {
+          "name": "CUDA_CACHE_PATH",
+          "value": "/opt/cache/cuda"
+        },
+        {
+          "name": "TRITON_CACHE_DIR",
+          "value": "/opt/cache/triton"
+        },
+        {
+          "name": "TORCHINDUCTOR_CACHE_DIR",
+          "value": "/opt/cache/torchinductor"
+        },
+        {
+          "name": "VLLM_CACHE_ROOT",
+          "value": "/opt/cache/vllm"
+        },
+        {
+          "name": "PYTHONDONTWRITEBYTECODE",
+          "value": "1"
+        },
+        {
+          "name": "NIM_TENSOR_PARALLEL_SIZE",
+          "value": "1"
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "1",
+          "memory": "8Gi"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "checkpoint",
+          "mountPath": "/opt/nim/.cache",
+          "readOnly": false
+        },
+        {
+          "name": "runtime-cache",
+          "mountPath": "/opt/cache",
+          "readOnly": false,
+          "subPath": "${GPU_CACHE_SUBPATH}"
+        },
+        {
+          "name": "shm",
+          "mountPath": "/dev/shm"
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "checkpoint",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CHECKPOINT_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "runtime-cache",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CACHE_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "shm",
+      "emptyDir": {
+        "medium": "Memory",
+        "sizeLimit": "8Gi"
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}

@@ -1,0 +1,23 @@
+runai:
+  projectName: REPLACE_PROJECT_NAME
+application:
+  image: REPLACE_APPLICATION_IMAGE_AT_SHA256
+secrets:
+  elasticsearchCA: ''
+storage:
+  artifacts:
+    create: true
+  source:
+    create: true
+  configuration:
+    create: true
+configuration:
+  prepareTokenizers: true
+bindings:
+  EMBED_ENDPOINT: http://rag-model-embed:8000/v1/embeddings
+  RERANK_ENDPOINT: http://rag-model-rerank:8000/v1/ranking
+  PAGE_ELEMENTS_ENDPOINT: http://rag-model-page-elements:8000/v1/page-elements
+  TABLE_STRUCTURE_ENDPOINT: http://rag-model-table-structure:8000/v1/table-structure
+  OCR_ENDPOINT: http://rag-model-ocr:8000/v1/ocr
+  PARSE_ENDPOINT: http://rag-model-parse:8000/v1/parse
+  CAPTION_ENDPOINT: http://rag-model-caption:8000/v1/chat/completions

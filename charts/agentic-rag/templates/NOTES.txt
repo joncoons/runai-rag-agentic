@@ -1,0 +1,3 @@
+This chart uses the Run:ai scheduler and project queue. Verify its AI Application/workload discovery in your installed Run:ai release.
+Use: kubectl -n {{ .Release.Namespace }} port-forward service/{{ .Release.Name }}-api 8080:8080
+Secrets and checkpoint/tokenizer PVC content must exist before the application can become ready.

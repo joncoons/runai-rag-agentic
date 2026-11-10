@@ -1,0 +1,293 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": [
+        "python"
+      ],
+      "args": [
+        "-m",
+        "nv_ingest_durable.pipeline_worker"
+      ],
+      "env": [
+        {
+          "name": "POSTGRES_DSN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "POSTGRES_DSN"
+            }
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "REDIS_URL"
+            }
+          }
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts/stages"
+        },
+        {
+          "name": "PAGE_ELEMENTS_URL",
+          "value": "${PAGE_ELEMENTS_URL}"
+        },
+        {
+          "name": "TABLE_STRUCTURE_URL",
+          "value": "${TABLE_STRUCTURE_URL}"
+        },
+        {
+          "name": "OCR_URL",
+          "value": "${OCR_URL}"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "INDEX_MODEL_DIGEST",
+          "value": "${INDEX_MODEL_DIGEST}"
+        },
+        {
+          "name": "INDEX_CONFIG_DIGEST",
+          "value": "${INDEX_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "EXTRACTION_BATCH_SIZE",
+          "value": "2"
+        },
+        {
+          "name": "EXTRACTION_DPI",
+          "value": "200"
+        },
+        {
+          "name": "EXTRACT_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_CHARTS",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "STAGE_WORKER_ROLE",
+          "value": "fused"
+        },
+        {
+          "name": "STAGE_WORKER_STREAM",
+          "value": "rag.agentic.images.extraction.pending"
+        },
+        {
+          "name": "STAGE_WORKER_GROUP",
+          "value": "rag-agentic-fused-v1"
+        },
+        {
+          "name": "STAGE_WORKER_CONCURRENCY",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_READ_COUNT",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_MICROBATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_RECLAIM_IDLE_MS",
+          "value": "30000"
+        },
+        {
+          "name": "STAGE_WORKER_LEASE_SECONDS",
+          "value": "600"
+        },
+        {
+          "name": "STAGE_WORKER_HEARTBEAT_SECONDS",
+          "value": "30"
+        },
+        {
+          "name": "CAPTION_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_EXTRA_BODY",
+          "value": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+        },
+        {
+          "name": "INDEX_RESULT_STREAM",
+          "value": "rag.agentic.assets.index"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "MILVUS_TOKEN"
+            }
+          }
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "2",
+          "memory": "2Gi"
+        },
+        "limits": {
+          "cpu": "4",
+          "memory": "8Gi"
+        }
+      },
+      "readinessProbe": {
+        "initialDelaySeconds": 5,
+        "periodSeconds": 10,
+        "timeoutSeconds": 5,
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/health/ready",
+          "port": 8083,
+          "scheme": "HTTP"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "artifacts",
+          "mountPath": "/artifacts",
+          "readOnly": false
+        },
+        {
+          "name": "embedding-checkpoint",
+          "mountPath": "/model/embed",
+          "readOnly": true
+        },
+        {
+          "name": "configuration",
+          "mountPath": "/app/config",
+          "readOnly": true
+        },
+        {
+          "name": "tmp",
+          "mountPath": "/tmp"
+        }
+      ],
+      "securityContext": {
+        "runAsUser": 1000,
+        "runAsGroup": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "artifacts",
+      "persistentVolumeClaim": {
+        "claimName": "${ARTIFACT_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "embedding-checkpoint",
+      "persistentVolumeClaim": {
+        "claimName": "${CHECKPOINT_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "configuration",
+      "persistentVolumeClaim": {
+        "claimName": "${CONFIG_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "tmp",
+      "emptyDir": {
+        "sizeLimit": "2Gi"
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}

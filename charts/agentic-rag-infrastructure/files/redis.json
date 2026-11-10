@@ -1,0 +1,36 @@
+{
+  "env": [
+    {
+      "name": "REDIS_PASSWORD",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "${CREDENTIALS_SECRET}",
+          "key": "REDIS_PASSWORD"
+        }
+      }
+    }
+  ],
+  "command": [
+    "sh",
+    "-ec"
+  ],
+  "args": [
+    "exec redis-server --appendonly yes --dir /data --requirepass \"$REDIS_PASSWORD\""
+  ],
+  "volumeMounts": [
+    {
+      "name": "data",
+      "mountPath": "/data"
+    }
+  ],
+  "readinessProbe": {
+    "exec": {
+      "command": [
+        "sh",
+        "-ec",
+        "REDISCLI_AUTH=\"$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"
+      ]
+    },
+    "periodSeconds": 5
+  }
+}

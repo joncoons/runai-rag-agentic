@@ -1,0 +1,243 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": [
+        "python"
+      ],
+      "args": [
+        "-m",
+        "application.api"
+      ],
+      "env": [
+        {
+          "name": "POSTGRES_DSN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "POSTGRES_DSN"
+            }
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "REDIS_URL"
+            }
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "ES_ENDPOINT"
+            }
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "MILVUS_URI"
+            }
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "ES_READER_USER"
+            }
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "ES_READER_PASSWORD"
+            }
+          }
+        },
+        {
+          "name": "LOCAL_ADMIN_CONFIG_FILE",
+          "value": "/etc/rag-agentic-admin/config.json"
+        },
+        {
+          "name": "LOCATION_REGISTRY_DATABASE",
+          "value": "true"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "MILVUS_TOKEN"
+            }
+          }
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "0.25",
+          "memory": "512Mi"
+        },
+        "limits": {
+          "cpu": "1",
+          "memory": "2Gi"
+        }
+      },
+      "readinessProbe": {
+        "initialDelaySeconds": 5,
+        "periodSeconds": 10,
+        "timeoutSeconds": 5,
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/api/status",
+          "port": 8080,
+          "scheme": "HTTP"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "artifacts",
+          "mountPath": "/artifacts",
+          "readOnly": false
+        },
+        {
+          "name": "approved-source",
+          "mountPath": "/source-roots/approved",
+          "readOnly": true
+        },
+        {
+          "name": "configuration",
+          "mountPath": "/app/config",
+          "readOnly": true
+        },
+        {
+          "name": "tmp",
+          "mountPath": "/tmp"
+        },
+        {
+          "name": "es-ca",
+          "mountPath": "/etc/rag-agentic-es",
+          "readOnly": true
+        },
+        {
+          "name": "local-admin",
+          "mountPath": "/etc/rag-agentic-admin",
+          "readOnly": true
+        }
+      ],
+      "securityContext": {
+        "runAsUser": 1000,
+        "runAsGroup": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "artifacts",
+      "persistentVolumeClaim": {
+        "claimName": "${ARTIFACT_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "approved-source",
+      "persistentVolumeClaim": {
+        "claimName": "${SOURCE_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "configuration",
+      "persistentVolumeClaim": {
+        "claimName": "${CONFIG_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "tmp",
+      "emptyDir": {
+        "sizeLimit": "2Gi"
+      }
+    },
+    {
+      "name": "es-ca",
+      "secret": {
+        "secretName": "${ES_CA_SECRET}"
+      }
+    },
+    {
+      "name": "local-admin",
+      "secret": {
+        "secretName": "${ADMIN_SECRET}"
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}

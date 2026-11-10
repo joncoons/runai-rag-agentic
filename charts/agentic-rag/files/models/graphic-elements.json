@@ -1,0 +1,71 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "nvcr.io/nim/nvidia/nemotron-graphic-elements-v1:latest",
+      "imagePullPolicy": "Always",
+      "env": [
+        {
+          "name": "NIM_NUM_MODEL_INSTANCES",
+          "value": "1"
+        },
+        {
+          "name": "NIM_TRITON_MODEL_INSTANCE_COUNT",
+          "value": "1"
+        },
+        {
+          "name": "NIM_TRITON_DATA_MAX_BATCH_SIZE",
+          "value": "1"
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "1",
+          "memory": "8Gi"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "checkpoint",
+          "mountPath": "/opt/nim/.cache",
+          "readOnly": false
+        },
+        {
+          "name": "runtime-cache",
+          "mountPath": "/opt/cache",
+          "readOnly": false,
+          "subPath": "${GPU_CACHE_SUBPATH}"
+        },
+        {
+          "name": "shm",
+          "mountPath": "/dev/shm"
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "checkpoint",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CHECKPOINT_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "runtime-cache",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CACHE_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "shm",
+      "emptyDir": {
+        "medium": "Memory",
+        "sizeLimit": "8Gi"
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}

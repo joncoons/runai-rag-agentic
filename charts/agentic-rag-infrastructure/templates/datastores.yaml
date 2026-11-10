@@ -1,0 +1,93 @@
+{{- if and .Values.components.milvus.enabled (or (not .Values.components.etcd.enabled) (not .Values.components.objects.enabled)) }}{{ fail "Local Milvus requires its dedicated etcd and object-store components" }}{{ end -}}
+{{- range $name,$component := .Values.components }}
+{{- if $component.enabled }}
+{{- $text := $.Files.Get (printf "files/%s.json" $name) -}}
+{{- if not $text }}{{ fail (printf "Unknown datastore component: %s" $name) }}{{ end -}}
+{{- $text = replace "${RELEASE}" $.Release.Name $text -}}
+{{- $text = replace "${CREDENTIALS_SECRET}" $.Values.credentialsSecret $text -}}
+{{- $container := $text | fromJson -}}
+{{- $_ := set $container "name" $name -}}
+{{- $_ := set $container "image" $component.image -}}
+{{- $_ := set $container "imagePullPolicy" "IfNotPresent" -}}
+{{- $_ := set $container "ports" (list (dict "containerPort" (int $component.port) "name" "client")) -}}
+{{- $_ := set $container "resources" (deepCopy $component.resources) -}}
+{{- if ne $name "milvus" }}{{- $_ := set $container "env" (concat (default list $container.env) (list (dict "name" "NVIDIA_VISIBLE_DEVICES" "value" "void") (dict "name" "CUDA_VISIBLE_DEVICES" "value" ""))) -}}{{- end -}}
+{{- $_ := set $container "securityContext" (dict "runAsUser" (int $component.uid) "runAsGroup" (int $component.gid) "runAsNonRoot" true "allowPrivilegeEscalation" false "capabilities" (dict "drop" (list "ALL"))) -}}
+{{- if and (eq $name "milvus") (eq (float64 $component.gpuFraction) 1.0) }}
+{{- $_ := set $container.resources "limits" (merge (default dict $container.resources.limits) (dict "nvidia.com/gpu" 1)) -}}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}-data
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "infra.labels" $ | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if $.Values.storageClass }}
+  storageClassName: {{ $.Values.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $component.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    {{- include "infra.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name | quote }}
+    app.kubernetes.io/component: {{ $name | quote }}
+  ports:
+    - name: client
+      port: {{ $component.port }}
+      targetPort: {{ $component.port }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    {{- include "infra.labels" $ | nindent 4 }}
+spec:
+  serviceName: {{ $.Release.Name }}-{{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name | quote }}
+      app.kubernetes.io/component: {{ $name | quote }}
+  template:
+    metadata:
+      labels:
+        {{- include "infra.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $name | quote }}
+      {{- if and (eq $name "milvus") (lt (float64 $component.gpuFraction) 1.0) }}
+      annotations:
+        gpu-fraction: {{ $component.gpuFraction | quote }}
+        gpu-fraction-container-name: milvus
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      schedulerName: {{ $.Values.runai.schedulerName }}
+      {{- if and (eq $name "milvus") $.Values.runai.gpuRuntimeClassName }}
+      runtimeClassName: {{ $.Values.runai.gpuRuntimeClassName | quote }}
+      {{- end }}
+      imagePullSecrets: {{ toJson $.Values.imagePullSecrets }}
+      nodeSelector: {{ toJson $component.nodeSelector }}
+      securityContext:
+        fsGroup: {{ $component.uid }}
+      containers:
+        {{- toYaml (list $container) | nindent 8 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $.Release.Name }}-{{ $name }}-data
+{{- end }}
+{{- end }}

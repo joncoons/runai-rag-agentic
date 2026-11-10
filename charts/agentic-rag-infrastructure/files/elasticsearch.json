@@ -1,0 +1,50 @@
+{
+  "env": [
+    {
+      "name": "discovery.type",
+      "value": "single-node"
+    },
+    {
+      "name": "xpack.security.enabled",
+      "value": "true"
+    },
+    {
+      "name": "xpack.security.http.ssl.enabled",
+      "value": "false"
+    },
+    {
+      "name": "ES_JAVA_OPTS",
+      "value": "-Xms1g -Xmx1g"
+    },
+    {
+      "name": "node.store.allow_mmap",
+      "value": "false"
+    },
+    {
+      "name": "ELASTIC_PASSWORD",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "${CREDENTIALS_SECRET}",
+          "key": "ELASTIC_PASSWORD"
+        }
+      }
+    }
+  ],
+  "volumeMounts": [
+    {
+      "name": "data",
+      "mountPath": "/usr/share/elasticsearch/data"
+    }
+  ],
+  "readinessProbe": {
+    "exec": {
+      "command": [
+        "bash",
+        "-ec",
+        "curl -fsS -u \"elastic:${ELASTIC_PASSWORD}\" http://127.0.0.1:9200/_cluster/health >/dev/null"
+      ]
+    },
+    "initialDelaySeconds": 15,
+    "periodSeconds": 10
+  }
+}

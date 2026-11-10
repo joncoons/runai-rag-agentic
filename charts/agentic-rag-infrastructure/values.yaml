@@ -1,0 +1,96 @@
+runai:
+  projectName: REPLACE_PROJECT_NAME
+  projectId: ''
+  schedulerName: runai-scheduler
+  gpuRuntimeClassName: nvidia
+credentialsSecret: rag-datastores
+imagePullSecrets: []
+storageClass: ''
+networkPolicy:
+  enabled: true
+components:
+  postgres:
+    enabled: true
+    image: postgres:17-bookworm
+    port: 5432
+    size: 100Gi
+    uid: 999
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+    nodeSelector: {}
+    gid: 999
+  redis:
+    enabled: true
+    image: redis:8.2.1
+    port: 6379
+    size: 20Gi
+    uid: 999
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 1Gi
+    nodeSelector: {}
+    gid: 999
+  elasticsearch:
+    enabled: true
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
+    port: 9200
+    size: 100Gi
+    uid: 1000
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        memory: 4Gi
+    nodeSelector: {}
+    gid: 0
+  etcd:
+    enabled: true
+    image: quay.io/coreos/etcd:v3.5.25
+    port: 2379
+    size: 20Gi
+    uid: 1000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+    nodeSelector: {}
+    gid: 1000
+  objects:
+    enabled: true
+    image: milvusdb/minio:RELEASE.2024-12-18T13-15-44Z
+    port: 9000
+    size: 100Gi
+    uid: 1000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+    nodeSelector: {}
+    gid: 1000
+  milvus:
+    enabled: true
+    image: milvusdb/milvus:v3.0.5-gpu
+    port: 19530
+    size: 100Gi
+    uid: 999
+    gpuFraction: 1.0
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        memory: 8Gi
+    nodeSelector: {}
+    gid: 999

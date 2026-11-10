@@ -1,0 +1,6 @@
+apiVersion: v2
+name: agentic-rag-infrastructure
+description: Optional dedicated local datastores for agentic RAG on Run:ai
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

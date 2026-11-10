@@ -1,0 +1,62 @@
+{
+  "command": [
+    "/tini",
+    "--",
+    "/milvus/bin/milvus",
+    "run",
+    "standalone"
+  ],
+  "env": [
+    {
+      "name": "ETCD_ENDPOINTS",
+      "value": "${RELEASE}-etcd:2379"
+    },
+    {
+      "name": "MINIO_ADDRESS",
+      "value": "${RELEASE}-objects:9000"
+    },
+    {
+      "name": "MINIO_ACCESS_KEY_ID",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "${CREDENTIALS_SECRET}",
+          "key": "MINIO_ROOT_USER"
+        }
+      }
+    },
+    {
+      "name": "MINIO_SECRET_ACCESS_KEY",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "${CREDENTIALS_SECRET}",
+          "key": "MINIO_ROOT_PASSWORD"
+        }
+      }
+    },
+    {
+      "name": "COMMON_STORAGE_USELOONFFI",
+      "value": "true"
+    }
+  ],
+  "volumeMounts": [
+    {
+      "name": "data",
+      "mountPath": "/var/lib/milvus"
+    }
+  ],
+  "startupProbe": {
+    "httpGet": {
+      "path": "/healthz",
+      "port": 9091
+    },
+    "failureThreshold": 90,
+    "periodSeconds": 10
+  },
+  "readinessProbe": {
+    "httpGet": {
+      "path": "/healthz",
+      "port": 9091
+    },
+    "periodSeconds": 10
+  }
+}

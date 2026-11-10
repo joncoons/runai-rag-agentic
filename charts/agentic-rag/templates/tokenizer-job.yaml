@@ -1,0 +1,61 @@
+{{- if and .Values.application.enabled .Values.configuration.prepareTokenizers }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-tokenizers-{{ .Release.Revision }}
+  labels:
+    {{- include "rag.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "rag.labels" . | nindent 8 }}
+        app.kubernetes.io/component: tokenizer-configuration
+    spec:
+      automountServiceAccountToken: false
+      schedulerName: {{ .Values.runai.schedulerName }}
+      imagePullSecrets: {{ toJson .Values.imagePullSecrets }}
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: prepare-tokenizers
+          image: {{ .Values.application.image | quote }}
+          command: [python, /app/tools/tokenizer_contract.py]
+          env:
+            - {name: NVIDIA_VISIBLE_DEVICES, value: void}
+            - {name: CUDA_VISIBLE_DEVICES, value: ""}
+          args:
+            - --checkpoint
+            - /model/embed
+            - --checkpoint-sha256
+            - {{ trimPrefix "sha256:" .Values.bindings.EMBED_CHECKPOINT_SHA256 | quote }}
+            - --max-request-characters
+            - {{ .Values.configuration.maxRequestCharacters | quote }}
+            - --output
+            - /app/config
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 1Gi}
+          volumeMounts:
+            - name: checkpoint
+              mountPath: /model/embed
+              {{- if .Values.storage.checkpoint.subPath }}
+              subPath: {{ .Values.storage.checkpoint.subPath | quote }}
+              {{- end }}
+              readOnly: true
+            - name: configuration
+              mountPath: /app/config
+      volumes:
+        - name: checkpoint
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.checkpoint.claim }}
+            readOnly: true
+        - name: configuration
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.configuration.claim }}
+{{- end }}

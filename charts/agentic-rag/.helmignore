@@ -1,0 +1,6 @@
+.git
+local
+rendered
+*.tgz
+__pycache__
+*.pyc

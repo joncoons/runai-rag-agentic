@@ -8,7 +8,7 @@ Collection-based ingestion and search with NVIDIA Nemotron models, NeMo Retrieve
 - Search across selected collections with a global top 10, rerank to 5 and stream the answer with source links. Select deep research explicitly. With no collection selected, use model-only answers.
 - Manage sources, schedules, image-origin breakdowns and actionable errors. A dedicated local admin login controls approved directory aliases.
 
-Start with the [Run:ai runbook](RUNAI_RUNBOOK.md). The repository contains application/runtime source, synthetic tests, portable deployment templates and [flow diagrams](diagrams/README.md). Deployment values, credentials, downloaded content and model weights are supplied separately.
+Deploy with the [application/model Helm chart](charts/agentic-rag), optional [datastore chart](charts/agentic-rag-infrastructure), and [YAML values examples](deployment/helm). Follow the [Run:ai runbook](RUNAI_RUNBOOK.md) for project, storage, model and secret setup. The repository contains application/runtime source, synthetic tests, portable deployment templates and [flow diagrams](diagrams/README.md). Deployment values, credentials, downloaded content and model weights are supplied separately.
 
 The qualified extraction library is `nemo-retriever==26.8.2`, with three hash-verified compatibility patches. NIM model templates use `:latest` and `Always`; record the resolved image/model revision before admitting new data. Updating a model does not make old vectors compatible automatically.
 

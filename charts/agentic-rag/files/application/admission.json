@@ -1,0 +1,284 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": [
+        "python"
+      ],
+      "args": [
+        "-m",
+        "application.worker"
+      ],
+      "env": [
+        {
+          "name": "POSTGRES_DSN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "POSTGRES_DSN"
+            }
+          }
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "REDIS_URL"
+            }
+          }
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/artifacts"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "ES_ENDPOINT"
+            }
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "MILVUS_URI"
+            }
+          }
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "ES_READER_USER"
+            }
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "ES_READER_PASSWORD"
+            }
+          }
+        },
+        {
+          "name": "APPLICATION_ROLE",
+          "value": "admission"
+        },
+        {
+          "name": "HEALTH_PORT",
+          "value": "8085"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "MILVUS_TOKEN"
+            }
+          }
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "0.25",
+          "memory": "512Mi"
+        },
+        "limits": {
+          "cpu": "1",
+          "memory": "2Gi"
+        }
+      },
+      "readinessProbe": {
+        "initialDelaySeconds": 5,
+        "periodSeconds": 10,
+        "timeoutSeconds": 5,
+        "failureThreshold": 3,
+        "httpGet": {
+          "path": "/health/ready",
+          "port": 8085,
+          "scheme": "HTTP"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "artifacts",
+          "mountPath": "/artifacts",
+          "readOnly": false
+        },
+        {
+          "name": "embedding-checkpoint",
+          "mountPath": "/model/embed",
+          "readOnly": true
+        },
+        {
+          "name": "configuration",
+          "mountPath": "/app/config",
+          "readOnly": true
+        },
+        {
+          "name": "tmp",
+          "mountPath": "/tmp"
+        },
+        {
+          "name": "es-ca",
+          "mountPath": "/etc/rag-agentic-es",
+          "readOnly": true
+        }
+      ],
+      "securityContext": {
+        "runAsUser": 1000,
+        "runAsGroup": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "artifacts",
+      "persistentVolumeClaim": {
+        "claimName": "${ARTIFACT_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "embedding-checkpoint",
+      "persistentVolumeClaim": {
+        "claimName": "${CHECKPOINT_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "configuration",
+      "persistentVolumeClaim": {
+        "claimName": "${CONFIG_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "tmp",
+      "emptyDir": {
+        "sizeLimit": "2Gi"
+      }
+    },
+    {
+      "name": "es-ca",
+      "secret": {
+        "secretName": "${ES_CA_SECRET}"
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}

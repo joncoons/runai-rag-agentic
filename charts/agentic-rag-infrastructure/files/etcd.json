@@ -1,0 +1,27 @@
+{
+  "command": [
+    "etcd"
+  ],
+  "args": [
+    "--advertise-client-urls=http://${RELEASE}-etcd:2379",
+    "--listen-client-urls=http://0.0.0.0:2379",
+    "--data-dir=/etcd",
+    "--auto-compaction-mode=revision",
+    "--auto-compaction-retention=1000",
+    "--quota-backend-bytes=4294967296",
+    "--snapshot-count=50000"
+  ],
+  "volumeMounts": [
+    {
+      "name": "data",
+      "mountPath": "/etcd"
+    }
+  ],
+  "readinessProbe": {
+    "httpGet": {
+      "path": "/health",
+      "port": 2379
+    },
+    "periodSeconds": 5
+  }
+}

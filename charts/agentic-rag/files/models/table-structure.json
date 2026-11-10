@@ -1,0 +1,95 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "nvcr.io/nim/nvidia/nemotron-object-detection:latest",
+      "imagePullPolicy": "Always",
+      "env": [
+        {
+          "name": "NIM_ENGINE_MODEL_NAME",
+          "value": "nvidia/nemotron-table-structure-v1"
+        },
+        {
+          "name": "NIM_ENGINE_MODEL_PATH",
+          "value": "/model/table-structure"
+        },
+        {
+          "name": "NIM_ENGINE_COUNT",
+          "value": "1"
+        },
+        {
+          "name": "NIM_PIPELINE_MAX_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "NIM_PERFORMANCE_MODE",
+          "value": "0"
+        },
+        {
+          "name": "NIM_ENGINE_PRECOMPILE_CACHE_DIR",
+          "value": "/opt/cache"
+        },
+        {
+          "name": "LOG_FORMAT",
+          "value": "json"
+        },
+        {
+          "name": "RUST_LOG",
+          "value": "info"
+        },
+        {
+          "name": "NIM_ENGINE_PRECISION",
+          "value": "fp16"
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "1",
+          "memory": "8Gi"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "checkpoint",
+          "mountPath": "/model",
+          "readOnly": true
+        },
+        {
+          "name": "runtime-cache",
+          "mountPath": "/opt/cache",
+          "readOnly": false,
+          "subPath": "${GPU_CACHE_SUBPATH}"
+        },
+        {
+          "name": "shm",
+          "mountPath": "/dev/shm"
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "checkpoint",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CHECKPOINT_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "runtime-cache",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CACHE_PVC}",
+        "readOnly": false
+      }
+    },
+    {
+      "name": "shm",
+      "emptyDir": {
+        "medium": "Memory",
+        "sizeLimit": "8Gi"
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}

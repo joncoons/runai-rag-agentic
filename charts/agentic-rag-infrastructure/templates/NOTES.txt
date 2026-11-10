@@ -1,0 +1,3 @@
+Dedicated local datastores are scoped to this project namespace.
+Elasticsearch uses basic authentication over internal HTTP; provide TLS-managed external infrastructure for enterprise deployment.
+All PVCs are retained on uninstall. Back them up as a coordinated set with application artifacts before changes.

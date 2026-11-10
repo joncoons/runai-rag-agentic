@@ -1,0 +1,21 @@
+{{- range $key,$storage := .Values.storage }}
+{{- if $storage.create }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $storage.claim }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "rag.labels" $ | nindent 4 }}
+spec:
+  accessModes: {{ toJson $storage.accessModes }}
+  {{- if $storage.storageClass }}
+  storageClassName: {{ $storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $storage.size }}
+{{- end }}
+{{- end }}

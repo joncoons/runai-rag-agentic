@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "runai": {
+      "type": "object",
+      "required": [
+        "projectName"
+      ],
+      "properties": {
+        "projectName": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "pattern": "^REPLACE_"
+          }
+        }
+      }
+    },
+    "application": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "image": {
+          "type": "string"
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "gpuFraction": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "properties": {
+        "maxRequestCharacters": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

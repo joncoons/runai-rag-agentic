@@ -1,0 +1,72 @@
+{{- range $name,$model := .Values.models }}
+{{- if $model.enabled }}
+{{- $values := include "rag.bindings" $ | fromJson -}}
+{{- $_ := set $values "MODEL_CHECKPOINT_PVC" $model.checkpointClaim -}}
+{{- $_ := set $values "MODEL_CACHE_PVC" $model.cacheClaim -}}
+{{- $_ := set $values "GPU_CACHE_SUBPATH" $model.cacheSubPath -}}
+{{- $_ := set $values "MODEL_PROFILE" $model.profile -}}
+{{- $_ := set $values "GEMM_BACKEND" $model.gemmBackend -}}
+{{- $spec := include "rag.resolve" (dict "text" ($.Files.Get (printf "files/models/%s.json" $name)) "bindings" $values) | fromJson -}}
+{{- $_ := set $spec "schedulerName" $.Values.runai.schedulerName -}}
+{{- if $.Values.runai.gpuRuntimeClassName }}{{- $_ := set $spec "runtimeClassName" $.Values.runai.gpuRuntimeClassName -}}{{- end -}}
+{{- $_ := set $spec "imagePullSecrets" $.Values.imagePullSecrets -}}
+{{- $_ := set $spec "nodeSelector" $model.nodeSelector -}}
+{{- $container := first $spec.containers -}}
+{{- $_ := set $container "name" "model" -}}
+{{- if $model.image }}
+{{- if not (hasSuffix ":latest" $model.image) }}{{ fail "NIM model image overrides must use :latest" }}{{ end -}}
+{{- $_ := set $container "image" $model.image -}}
+{{- end -}}
+{{- if $model.extraEnv }}{{- $_ := set $container "env" (concat $container.env $model.extraEnv) -}}{{- end -}}
+
+{{- $_ := set $container "startupProbe" (dict "httpGet" (dict "path" "/v1/health/ready" "port" 8000) "failureThreshold" 360 "periodSeconds" 10) -}}
+{{- $_ := set $container "readinessProbe" (dict "httpGet" (dict "path" "/v1/health/ready" "port" 8000) "periodSeconds" 10 "timeoutSeconds" 5) -}}
+{{- $_ := set $container "resources" (deepCopy $model.resources) -}}
+{{- if eq (float64 $model.gpuFraction) 1.0 }}
+{{- $_ := set $container.resources "limits" (merge (default dict $container.resources.limits) (dict "nvidia.com/gpu" 1)) -}}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-model-{{ $name }}
+  labels:
+    {{- include "rag.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name | quote }}
+      app.kubernetes.io/component: model-{{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "rag.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: model-{{ $name }}
+      {{- if lt (float64 $model.gpuFraction) 1.0 }}
+      annotations:
+        gpu-fraction: {{ $model.gpuFraction | quote }}
+        gpu-fraction-container-name: model
+      {{- end }}
+    spec:
+      {{- toYaml $spec | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}-model-{{ $name }}
+  labels:
+    {{- include "rag.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name | quote }}
+    app.kubernetes.io/component: model-{{ $name }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+{{- end }}
+{{- end }}

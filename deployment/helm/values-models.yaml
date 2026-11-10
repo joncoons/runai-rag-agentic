@@ -1,0 +1,54 @@
+# Overlay for the application chart. Set each enabled model's actual storage/profile/placement.
+# The embedding checkpoint in this release uses NVFP4 and requires compatible hardware/backend.
+models:
+  embed:
+    enabled: true
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_EMBED_ENGINE_PARENT_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_SKU_SM_DRIVER_MODEL_IMAGE_CHECKPOINT_PRECISION_CONFIG
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+  rerank:
+    enabled: true
+    gpuFraction: 0.5
+    checkpointClaim: REPLACE_RERANK_ENGINE_PARENT_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_RERANK_GPU_CACHE_SUBPATH
+  parse:
+    enabled: true
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_PARSE_ENGINE_PARENT_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_PARSE_GPU_CACHE_SUBPATH
+  page-elements:
+    enabled: true
+    checkpointClaim: REPLACE_PAGE_ELEMENTS_ENGINE_PARENT_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_PAGE_ELEMENTS_GPU_CACHE_SUBPATH
+  table-structure:
+    enabled: true
+    checkpointClaim: REPLACE_TABLE_STRUCTURE_ENGINE_PARENT_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_TABLE_STRUCTURE_GPU_CACHE_SUBPATH
+  ocr:
+    enabled: true
+    checkpointClaim: REPLACE_OCR_NIM_CACHE_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_OCR_GPU_CACHE_SUBPATH
+    profile: REPLACE_OCR_PROFILE
+  graphic-elements:
+    enabled: false
+  caption:
+    enabled: true
+    gpuFraction: 0.5
+    checkpointClaim: REPLACE_OMNI_NIM_CACHE_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_OMNI_GPU_CACHE_SUBPATH
+    profile: REPLACE_COMPATIBLE_OMNI_PROFILE
+  llm:
+    enabled: true
+    gpuFraction: 1.0
+    checkpointClaim: REPLACE_SUPER_VL_NIM_CACHE_PVC
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_SUPER_VL_GPU_CACHE_SUBPATH
+    profile: REPLACE_COMPATIBLE_SUPER_VL_TP1_PROFILE

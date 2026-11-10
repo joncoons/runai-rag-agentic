@@ -1,0 +1,48 @@
+{
+  "args": [
+    "minio",
+    "server",
+    "/minio_data",
+    "--address",
+    ":9000",
+    "--console-address",
+    ":9001"
+  ],
+  "env": [
+    {
+      "name": "MINIO_ROOT_USER",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "${CREDENTIALS_SECRET}",
+          "key": "MINIO_ROOT_USER"
+        }
+      }
+    },
+    {
+      "name": "MINIO_ROOT_PASSWORD",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "${CREDENTIALS_SECRET}",
+          "key": "MINIO_ROOT_PASSWORD"
+        }
+      }
+    },
+    {
+      "name": "HOME",
+      "value": "/tmp"
+    }
+  ],
+  "volumeMounts": [
+    {
+      "name": "data",
+      "mountPath": "/minio_data"
+    }
+  ],
+  "readinessProbe": {
+    "httpGet": {
+      "path": "/minio/health/ready",
+      "port": 9000
+    },
+    "periodSeconds": 5
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "extraction_model_contract": {
+    "page-elements": {
+      "model": "nvidia/nemotron-page-elements-v3",
+      "checkpoint_manifest_sha256": "${PAGE_ELEMENTS_CHECKPOINT_MANIFEST_SHA256}",
+      "platform_image_digest": "${PAGE_ELEMENTS_PLATFORM_IMAGE_DIGEST}"
+    },
+    "table-structure": {
+      "model": "nvidia/nemotron-table-structure-v1",
+      "checkpoint_manifest_sha256": "${TABLE_STRUCTURE_CHECKPOINT_MANIFEST_SHA256}",
+      "platform_image_digest": "${TABLE_STRUCTURE_PLATFORM_IMAGE_DIGEST}"
+    },
+    "ocr": {
+      "model": "nvidia/nemotron-ocr-v2",
+      "checkpoint_manifest_sha256": "${OCR_CHECKPOINT_MANIFEST_SHA256}",
+      "platform_image_digest": "${OCR_PLATFORM_IMAGE_DIGEST}"
+    }
+  }
+}

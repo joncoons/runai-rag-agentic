@@ -1,0 +1,83 @@
+{{- if or .Values.application.enabled .Values.migrations.enabled }}
+{{- $root := . -}}
+{{- $roles := .Values.application.roles -}}
+{{- if not .Values.application.enabled }}{{- $roles = list -}}{{- end -}}
+{{- if .Values.migrations.enabled }}{{- $roles = append $roles "migration" -}}{{- end -}}
+{{- range $role := $roles }}
+{{- $file := printf "files/application/%s.json" $role -}}
+{{- if not ($root.Files.Get $file) }}{{ fail (printf "Unknown application role: %s" $role) }}{{ end -}}
+{{- $spec := include "rag.resolve" (dict "text" ($root.Files.Get $file) "bindings" (include "rag.bindings" $root | fromJson)) | fromJson -}}
+{{- $_ := set $spec "schedulerName" $root.Values.runai.schedulerName -}}
+{{- $_ := set $spec "imagePullSecrets" $root.Values.imagePullSecrets -}}
+{{- $_ := set $spec "nodeSelector" $root.Values.application.nodeSelector -}}
+{{- $_ := set $spec "securityContext" (dict "fsGroup" 1000) -}}
+{{- $container := first $spec.containers -}}
+{{- if $root.Values.application.resources }}{{- $_ := set $container "resources" $root.Values.application.resources -}}{{- end -}}
+{{- $env := list -}}
+{{- range $item := $container.env -}}
+{{- if not (and (eq $item.name "ES_CA") (not $root.Values.secrets.elasticsearchCA)) -}}
+{{- if eq $item.name "QUERY_MCP_URL" }}{{- $_ := set $item "value" (printf "http://%s-query-mcp.%s.svc.cluster.local:8011/mcp" $root.Release.Name $root.Release.Namespace) -}}{{- end -}}
+{{- $env = append $env $item -}}
+{{- end -}}
+{{- end -}}
+{{- $env = concat $env (list (dict "name" "NVIDIA_VISIBLE_DEVICES" "value" "void") (dict "name" "CUDA_VISIBLE_DEVICES" "value" "")) -}}
+{{- $_ := set $container "env" $env -}}
+{{- $mounts := list -}}
+{{- range $item := $container.volumeMounts }}{{- if not (and (eq $item.name "es-ca") (not $root.Values.secrets.elasticsearchCA)) }}{{- if and (eq $item.name "embedding-checkpoint") $root.Values.storage.checkpoint.subPath }}{{- $_ := set $item "subPath" $root.Values.storage.checkpoint.subPath -}}{{- end -}}{{- $mounts = append $mounts $item -}}{{- end }}{{- end -}}
+{{- $volumes := list -}}
+{{- range $item := $spec.volumes }}{{- if not (and (eq $item.name "es-ca") (not $root.Values.secrets.elasticsearchCA)) }}{{- $volumes = append $volumes $item -}}{{- end }}{{- end -}}
+{{- range $filename := list "model-bindings.json" "model-contracts.json" "location-roots.json" -}}
+{{- $mounts = append $mounts (dict "name" "bindings" "mountPath" (printf "/app/config/%s" $filename) "subPath" $filename "readOnly" true) -}}
+{{- end -}}
+{{- $_ := set $container "volumeMounts" $mounts -}}
+{{- $_ := set $spec "volumes" (append $volumes (dict "name" "bindings" "configMap" (dict "name" (printf "%s-bindings" $root.Release.Name)))) -}}
+{{- if ne $role "migration" }}
+{{- $_ := set $spec "initContainers" (list (dict "name" "wait-for-schema-and-tokenizers" "image" $root.Values.application.image "command" (list "python" "-c" ($root.Files.Get "files/wait_ready.py")) "env" (concat $env (list (dict "name" "EXPECTED_EMBED_CHECKPOINT_SHA256" "value" (trimPrefix "sha256:" $root.Values.bindings.EMBED_CHECKPOINT_SHA256)) (dict "name" "EXPECTED_EMBED_MAX_CHARACTERS" "value" (toString $root.Values.configuration.maxRequestCharacters)))) "volumeMounts" $mounts "resources" (dict "requests" (dict "cpu" "50m" "memory" "128Mi") "limits" (dict "memory" "512Mi")) "securityContext" (dict "runAsUser" 1000 "runAsGroup" 1000 "runAsNonRoot" true "allowPrivilegeEscalation" false))) -}}
+{{- end }}
+{{- if eq $role "migration" }}
+{{- $_ := set $spec "restartPolicy" "Never" }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $root.Release.Name }}-migration-{{ $root.Release.Revision }}
+  labels:
+    {{- include "rag.labels" $root | nindent 4 }}
+spec:
+  backoffLimit: {{ $root.Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ $root.Values.migrations.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "rag.labels" $root | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      {{- toYaml $spec | nindent 6 }}
+{{- else }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $root.Release.Name }}-{{ $role }}
+  labels:
+    {{- include "rag.labels" $root | nindent 4 }}
+spec:
+  replicas: {{ $root.Values.application.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $root.Release.Name | quote }}
+      app.kubernetes.io/component: {{ $role | quote }}
+  template:
+    metadata:
+      labels:
+        {{- include "rag.labels" $root | nindent 8 }}
+        app.kubernetes.io/component: {{ $role | quote }}
+      annotations:
+        checksum/config: {{ printf "%s%s" (include "rag.bindings" $root) (toJson $root.Values.configuration) | sha256sum }}
+    spec:
+      {{- toYaml $spec | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,44 @@
+{
+  "env": [
+    {
+      "name": "POSTGRES_DB",
+      "value": "rag"
+    },
+    {
+      "name": "POSTGRES_USER",
+      "value": "rag"
+    },
+    {
+      "name": "POSTGRES_PASSWORD",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "${CREDENTIALS_SECRET}",
+          "key": "POSTGRES_PASSWORD"
+        }
+      }
+    },
+    {
+      "name": "PGDATA",
+      "value": "/var/lib/postgresql/data/pgdata"
+    }
+  ],
+  "volumeMounts": [
+    {
+      "name": "data",
+      "mountPath": "/var/lib/postgresql/data"
+    }
+  ],
+  "readinessProbe": {
+    "exec": {
+      "command": [
+        "pg_isready",
+        "-U",
+        "rag",
+        "-d",
+        "rag"
+      ]
+    },
+    "initialDelaySeconds": 5,
+    "periodSeconds": 5
+  }
+}

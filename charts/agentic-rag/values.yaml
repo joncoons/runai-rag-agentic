@@ -1,0 +1,221 @@
+runai:
+  projectName: REPLACE_PROJECT_NAME
+  projectId: ''
+  schedulerName: runai-scheduler
+  gpuRuntimeClassName: nvidia
+application:
+  enabled: true
+  image: REPLACE_APPLICATION_IMAGE_AT_SHA256
+  roles:
+  - api
+  - relay
+  - admission
+  - writer
+  - foreground
+  - caption
+  - query-mcp
+  - refresh
+  - caption-admission
+  - page-extraction
+  - image-extraction
+  - binary-extraction
+  - page-admission
+  - asset-admission
+  - asset-download
+  replicas: 1
+  resources: {}
+  nodeSelector: {}
+imagePullSecrets: []
+secrets:
+  runtime: rag-runtime
+  admin: rag-local-admin
+  elasticsearchCA: rag-es-ca
+storage:
+  artifacts:
+    claim: rag-artifacts
+    create: false
+    size: 100Gi
+    accessModes:
+    - ReadWriteMany
+    storageClass: ''
+  source:
+    claim: rag-sources
+    create: false
+    size: 100Gi
+    accessModes:
+    - ReadWriteMany
+    storageClass: ''
+  checkpoint:
+    claim: rag-embedding-checkpoint
+    create: false
+    size: 20Gi
+    accessModes:
+    - ReadOnlyMany
+    storageClass: ''
+    subPath: ''
+  configuration:
+    claim: rag-config
+    create: false
+    size: 2Gi
+    accessModes:
+    - ReadWriteMany
+    storageClass: ''
+configuration:
+  allowedSourceRoots: {}
+  prepareTokenizers: false
+  maxRequestCharacters: 65536
+migrations:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+models:
+  caption:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: &id001 {}
+    resources: &id002
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: &id003 []
+  embed:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: []
+  graphic-elements:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: []
+  ocr:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: []
+  page-elements:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: []
+  parse:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: []
+  rerank:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: []
+  table-structure:
+    enabled: false
+    gpuFraction: 0.25
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+    image: ''
+    extraEnv: []
+  llm:
+    enabled: false
+    gpuFraction: 1.0
+    checkpointClaim: REPLACE_MODEL_CHECKPOINT_PVC
+    cacheClaim: REPLACE_MODEL_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_CACHE_SUBPATH
+    profile: REPLACE_GPU_COMPATIBLE_PROFILE
+    gemmBackend: REPLACE_GPU_COMPATIBLE_BACKEND
+    nodeSelector: *id001
+    resources: *id002
+    image: ''
+    extraEnv: *id003
+bindings:
+  CAPTION_ENDPOINT: REPLACE_CAPTION_ENDPOINT
+  CAPTION_MODEL_DIGEST: REPLACE_CAPTION_MODEL_DIGEST
+  EMBED_CHECKPOINT_SHA256: REPLACE_EMBED_CHECKPOINT_SHA256
+  EMBED_ENDPOINT: REPLACE_EMBED_ENDPOINT
+  LLM_ENDPOINT: REPLACE_LLM_ENDPOINT
+  OCR_CHECKPOINT_MANIFEST_SHA256: REPLACE_OCR_CHECKPOINT_MANIFEST_SHA256
+  OCR_ENDPOINT: REPLACE_OCR_ENDPOINT
+  OCR_MODEL_DIGEST: REPLACE_OCR_MODEL_DIGEST
+  OCR_PLATFORM_IMAGE_DIGEST: REPLACE_OCR_PLATFORM_IMAGE_DIGEST
+  PAGE_ELEMENTS_CHECKPOINT_MANIFEST_SHA256: REPLACE_PAGE_ELEMENTS_CHECKPOINT_MANIFEST_SHA256
+  PAGE_ELEMENTS_ENDPOINT: REPLACE_PAGE_ELEMENTS_ENDPOINT
+  PAGE_ELEMENTS_PLATFORM_IMAGE_DIGEST: REPLACE_PAGE_ELEMENTS_PLATFORM_IMAGE_DIGEST
+  PARSE_ENDPOINT: REPLACE_PARSE_ENDPOINT
+  RERANK_ENDPOINT: REPLACE_RERANK_ENDPOINT
+  TABLE_STRUCTURE_CHECKPOINT_MANIFEST_SHA256: REPLACE_TABLE_STRUCTURE_CHECKPOINT_MANIFEST_SHA256
+  TABLE_STRUCTURE_ENDPOINT: REPLACE_TABLE_STRUCTURE_ENDPOINT
+  TABLE_STRUCTURE_PLATFORM_IMAGE_DIGEST: REPLACE_TABLE_STRUCTURE_PLATFORM_IMAGE_DIGEST

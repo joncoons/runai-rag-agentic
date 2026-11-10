@@ -1,0 +1,12 @@
+{{- if or .Values.application.enabled .Values.migrations.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-bindings
+  labels:
+    {{- include "rag.labels" . | nindent 4 }}
+data:
+  model-bindings.json: {{ include "rag.resolve" (dict "text" (.Files.Get "files/model-bindings.json.template") "bindings" (include "rag.bindings" . | fromJson)) | quote }}
+  model-contracts.json: {{ include "rag.resolve" (dict "text" (.Files.Get "files/model-contracts.json.template") "bindings" (include "rag.bindings" . | fromJson)) | quote }}
+  location-roots.json: {{ toJson .Values.configuration.allowedSourceRoots | quote }}
+{{- end }}

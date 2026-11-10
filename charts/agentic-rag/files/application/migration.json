@@ -1,0 +1,87 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": [
+        "python"
+      ],
+      "args": [
+        "-m",
+        "application.migrate"
+      ],
+      "env": [
+        {
+          "name": "POSTGRES_DSN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "POSTGRES_DSN"
+            }
+          }
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "MILVUS_TOKEN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "MILVUS_TOKEN"
+            }
+          }
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "0.25",
+          "memory": "512Mi"
+        },
+        "limits": {
+          "cpu": "1",
+          "memory": "2Gi"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "configuration",
+          "mountPath": "/app/config",
+          "readOnly": true
+        }
+      ],
+      "securityContext": {
+        "runAsUser": 1000,
+        "runAsGroup": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "configuration",
+      "persistentVolumeClaim": {
+        "claimName": "${CONFIG_PVC}",
+        "readOnly": true
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}
