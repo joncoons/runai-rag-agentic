@@ -13,3 +13,5 @@ artifacts/
 *.whl
 *.safetensors
 *.engine
+
+.playwright-cli/

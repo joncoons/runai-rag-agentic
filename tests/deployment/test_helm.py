@@ -85,6 +85,7 @@ class HelmContracts(unittest.TestCase):
   v=yaml.safe_load((ROOT/'charts/agentic-rag-infrastructure/values.yaml').read_text());v['runai']['projectName']='validation';v['components']['etcd']['enabled']=False;self.render(v,'agentic-rag-infrastructure',success=False)
 
 
+@unittest.skipUnless((ROOT/'charts/agentic-rag/files/wait_ready.py').is_file(),'Requires source chart readiness helper')
 class StartupGateBehavior(unittest.IsolatedAsyncioTestCase):
  async def test_valid_older_tokenizer_contract_does_not_release_workers(self):
   import functools,os,runpy,sys,types

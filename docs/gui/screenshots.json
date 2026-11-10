@@ -1,0 +1,126 @@
+{
+  "fictional": true,
+  "source": "Real application static frontend with docs/gui/demo_server.py synthetic API fixtures",
+  "screenshots": [
+    {
+      "path": "docs/gui/images/01-collections.png",
+      "sha256": "95141d5f071817931f25a007757bf2ef5ee3f866da4d96a7b1daf68e12547bf4",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/02-create-collection.png",
+      "sha256": "cbcf6b9aea7ec12bc559973bde151fb4fd72d6cf7d8dbc5403fcd0f2d1645b54",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/03-collection-overview.png",
+      "sha256": "904aae3e628d5b70ce3f66f8407371af2610500a4d75b24415858040f25d7494",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/04-saved-sources.png",
+      "sha256": "3662861fac585ffe4e5a870b59c5fe0ca58591cb08d6be055955682c93911db7",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/05-upload-files.png",
+      "sha256": "76451f0958a7ead8f840e94ca107bce0bd6f3fae84174f9a356cdbcb2b980d7a",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/06-webcrawl-scope.png",
+      "sha256": "c6ad5f7dfb1545310a5c66d1f1722b3b7b83ecae3899dfce488a878540fcd9e7",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/06b-webcrawl-boundaries.png",
+      "sha256": "812d89ac8ba582db4bcf20ebbb8c53ea97aadbddeaf14ce6f16afcdd27373efc",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/07-webcrawl-assets.png",
+      "sha256": "c00d33a38c0f40ba4395e86d74f45781789b57f187ab854618bebc38b68677a5",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/08-directory-source.png",
+      "sha256": "279de3f7bb5c4a24881979b67465e6d0e03a3225b8e46155a92c1bc7d6d11f84",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/09-location-schedule.png",
+      "sha256": "05947ef5d062e0d1892a7d968ce6ed9de2ff2944ebf227582aa2e89ba2301840",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/10-document-url.png",
+      "sha256": "00bf3842924cc1d9be659656e380384ff7d75c60af6b7bd62f8ee913a1005522",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/11-edit-source-schedule.png",
+      "sha256": "2ff0814adf4d86c36c8abc4625ce752719afa8052ecf58686653a5ea943d5758",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/12-ingestion-progress.png",
+      "sha256": "c29ff0fbc843dbdbec2f20de80bef2783840943e555c81227cad8d84765b765f",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/13-search-results.png",
+      "sha256": "04fd491557a2f94a44b3f7d1d930c0649c93aefd614a772718b5f7e3a11767d9",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/14-deep-research-choice.png",
+      "sha256": "9f288eb23e61053f6f46a4d9f7e493c5975babf5d5b5859864c5ed4f9df13f6c",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/15-model-only-search.png",
+      "sha256": "443447091f2936517d37479cbd735baea8ed4f2e9aa41353b0440ae2613f6bb1",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/16-duplicate-to-milvus.png",
+      "sha256": "9f141c3736e562106e8b4d244971d623aebb7b24ed3aa5bdab581681d2e71249",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/17-delete-confirmation.png",
+      "sha256": "14da8e3126f5ab8049b43f99fbf2fc5f433c29b009d80ac5df38996fcfe85cfb",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/18-admin-login.png",
+      "sha256": "456ff3b1e387e14b7fd85cf0bc34fd6ebdb5326140f26b058c80b946106f83e6",
+      "width": 1440,
+      "height": 1040
+    },
+    {
+      "path": "docs/gui/images/19-admin-locations.png",
+      "sha256": "c697d31cd0b024b01e5abc8b415265c058a3ce5cf773cea7c61eca2aa21a2f8d",
+      "width": 1440,
+      "height": 1040
+    }
+  ]
+}

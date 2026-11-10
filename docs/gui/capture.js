@@ -1,0 +1,64 @@
+async page => {
+  // Run from the repository root against the loopback-only fictional preview.
+  const origin='http://127.0.0.1:8099';
+  const fixture=await (await page.request.get(origin+'/api/status')).json();
+  if(fixture.status!=='demo_preview')throw Error('Refusing to capture a non-demo backend');
+  await page.request.post(origin+'/api/session/logout');
+  await page.setViewportSize({width:1440,height:1040});
+  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+  let screenSequence=0;
+  const open=async hash=>{
+    await page.evaluate(()=>sessionStorage.clear());
+    await page.goto(origin+'/?frame='+(++screenSequence)+'&screen='+encodeURIComponent(hash)+hash);
+    await page.waitForFunction(()=>typeof state!=='undefined'&&state.loaded);
+    await page.evaluate(()=>document.fonts.ready);
+  };
+  const shot=async name=>{
+    await page.evaluate(()=>{document.activeElement?.blur();message('Fictional Atlas workspace · Illustrative data, not a live model run');});
+    await page.screenshot({path:'docs/gui/images/'+name+'.png',animations:'disabled'});
+  };
+  const fill=async values=>{for(const [selector,value] of Object.entries(values))await page.locator(selector).fill(value);};
+  await open('#collections');await shot('01-collections');
+  await page.getByRole('link',{name:'Create collection',exact:true}).click();
+  await fill({'#collection-name':'Atlas Reference'});await page.locator('#also-milvus').check();await shot('02-create-collection');
+  await open('#collection/atlas-reference');
+  await page.waitForSelector('[data-source-id="atlas-website"]');await shot('03-collection-overview');
+  await page.locator('#website-sources').scrollIntoViewIfNeeded();await shot('04-saved-sources');
+  await open('#upload/atlas-reference');
+  await page.locator('#files').setInputFiles([{name:'Atlas-Operator-Guide.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nSynthetic GUI preview only.\n')},{name:'Safety-Checklist.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nSynthetic GUI preview only.\n')}]);
+  await page.locator('#captions').check();await shot('05-upload-files');
+  await open('#website/atlas-reference');
+  await fill({'#website-name':'Atlas documentation website','#new-source-timezone':'Etc/UTC','#allowed-hosts':'docs.example.com\ndocuments.example.com','#seed-urls':'https://docs.example.com/atlas/','#page-prefixes':'https://docs.example.com/atlas/','#crawl-depth':'','#crawl-pages':''});
+  await page.locator('#new-source-enabled').check();await page.locator('#discover-images').check();await page.locator('#website-captions').check();
+  await page.evaluate(()=>window.scrollTo(0,0));await shot('06-webcrawl-scope');
+  await page.locator('#allowed-hosts').scrollIntoViewIfNeeded();await shot('06b-webcrawl-boundaries');
+  await page.locator('#website-form button[type=submit]').scrollIntoViewIfNeeded();await shot('07-webcrawl-assets');
+  await open('#location/atlas-reference');
+  await page.waitForFunction(()=>document.querySelector('#location-roots option[value="location://atlas-documents/"]'));
+  await page.locator('#location-roots').selectOption('location://atlas-documents/');
+  await fill({'#location-name':'Atlas service guides','#location-uri':'location://atlas-documents/service-guides/','#location-depth':'4','#location-files':'128','#location-source-timezone':'Etc/UTC'});
+  await page.locator('#location-captions').check();await page.locator('#location-source-enabled').check();await page.evaluate(()=>window.scrollTo(0,0));await shot('08-directory-source');
+  await page.locator('#location-form button[type=submit]').scrollIntoViewIfNeeded();await shot('09-location-schedule');
+  await open('#location/atlas-reference');
+  await fill({'#location-name':'Atlas release notes PDF','#location-uri':'https://documents.example.com/atlas/release-notes.pdf','#location-source-timezone':'Etc/UTC'});
+  await page.locator('#location-uri').dispatchEvent('input');await fill({'#location-hosts':'documents.example.com'});await page.evaluate(()=>window.scrollTo(0,0));await shot('10-document-url');
+  await open('#collection/atlas-reference');await page.waitForSelector('[data-source-id="atlas-website"]');
+  await page.locator('[data-source-action="edit"][data-source-id="atlas-website"]').click();
+  await page.locator('#dialog').evaluate(d=>d.scrollTop=d.scrollHeight);await shot('11-edit-source-schedule');
+  await page.locator('#dialog [data-close]').click();
+  await open('#job/atlas-demo-ingestion');await page.waitForSelector('.job');await shot('12-ingestion-progress');
+  await open('#search/atlas-reference');
+  await page.locator('input[name=collection][value="atlas-reference"]').check();await page.locator('#backend').selectOption('milvus');
+  await fill({'#query':'Where are the Atlas commissioning checklists?'});await page.locator('#search-form button[type=submit]').click();
+  await page.waitForFunction(()=>state.result&&!state.searching);await shot('13-search-results');
+  await open('#search/atlas-reference');await fill({'#query':'Compare the Atlas commissioning requirements across the selected guides.'});await page.locator('input[name=mode][value=deep_research]').check();await shot('14-deep-research-choice');
+  await page.locator('input[name=mode][value=search]').check();await page.locator('[data-action=no-collections]').click();
+  await fill({'#query':'What can this workspace help me find?'});await page.locator('#search-form button[type=submit]').click();
+  await page.waitForFunction(()=>state.result&&!state.searching);await shot('15-model-only-search');
+  await open('#collection/service-bulletins');await page.locator('[data-action=milvus]').click();await shot('16-duplicate-to-milvus');await page.locator('#dialog [data-close]').click();
+  await page.locator('.menu summary').click();await page.locator('[data-action=delete]').click();await fill({'#confirm-name':'Service Bulletins'});await shot('17-delete-confirmation');await page.locator('#dialog [data-close]').click();
+  await open('#admin');await page.waitForSelector('#admin-login');await fill({'#admin-username':'demo-admin'});await shot('18-admin-login');
+  await page.evaluate(async()=>{await api('/api/session/login',{method:'POST',body:'{}'});await loadAdmin();});
+  await page.waitForSelector('#admin-register-location');await fill({'#admin-location-alias':'atlas-briefings','#admin-location-path':'/source-roots/approved/atlas/briefings'});await shot('19-admin-locations');
+  return {screenshots:20,fictional:true,horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)};
+}
