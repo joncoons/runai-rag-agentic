@@ -19,6 +19,10 @@ run.ai/project: {{ .Values.runai.projectId | quote }}
 {{- $_ := set $v "SOURCE_PVC" .Values.storage.source.claim -}}
 {{- $_ := set $v "CHECKPOINT_PVC" .Values.storage.checkpoint.claim -}}
 {{- $_ := set $v "CONFIG_PVC" .Values.storage.configuration.claim -}}
+{{- $_ := set $v "PRIVATE_RUNTIME_SECRET" .Values.privateAnalysis.runtimeSecret -}}
+{{- $_ := set $v "PRIVATE_SCOPE_SECRET" .Values.privateAnalysis.scopeSecret -}}
+{{- $_ := set $v "PRIVATE_ARTIFACT_PVC" .Values.privateAnalysis.artifactClaim -}}
+{{- $_ := set $v "PRIVATE_QUERY_MCP_URL" (printf "http://%s-analysis-query-mcp.%s.svc.cluster.local:8012/mcp" .Release.Name .Release.Namespace) -}}
 {{- $checkpoint := trimPrefix "sha256:" (toString (get $v "EMBED_CHECKPOINT_SHA256")) -}}
 {{- $_ := set $v "EMBED_MODEL_DIGEST" (printf "sha256:%s" $checkpoint) -}}
 {{- $_ := set $v "INDEX_MODEL_DIGEST" (printf "sha256:%s" $checkpoint) -}}

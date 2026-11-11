@@ -1,0 +1,103 @@
+'use strict';
+const workflowState={session:null,epoch:0,runs:[],documents:[],run:null,document:null,documentRun:null,question:'',budget:6,documentQuestion:'',uploadFile:null,loaded:new Set(),loading:false,error:'',requestKey:null,promotions:[]};
+const workflowRouteNames=new Set(['research','research-run','analysis','document']);
+async function workflowSession(){const fresh=await api('/api/session');if(workflowState.session&&workflowState.session.csrf_token!==fresh.csrf_token)document.dispatchEvent(new Event('rag-session-changed'));workflowState.session=fresh;return fresh;}
+async function workflowWrite(url,body,method='POST'){
+ const session=await workflowSession();return api(url,{method,headers:{'X-CSRF-Token':session.csrf_token},...(body instanceof FormData?{body}:body===undefined?{}:{body:JSON.stringify(body)})});
+}
+function workflowKey(){return globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
+function workflowRunList(){return workflowState.runs.length?workflowState.runs.map(r=>`<article class="collection-row"><div><h3><a href="${link('research-run',r.id)}">${esc(r.question)}</a></h3><p class="muted">${r.completed_queries.length} of ${r.queries.length||r.search_budget} searches · ${esc(r.backend==='milvus'?'Milvus':'Elasticsearch')}</p></div>${badge(r.status)}</article>`).join(''):'<p class="muted">Your research jobs will appear here.</p>';}
+function workflowDocumentList(){return workflowState.documents.length?workflowState.documents.map(d=>`<article class="collection-row"><div><h3><a href="${link('document',d.id)}">${esc(d.filename)}</a></h3><p class="muted">Expires ${esc(new Date(d.expires_at).toLocaleString())}</p></div>${badge(d.ready?'ready':d.status)}</article>`).join(''):'<p class="muted">Documents you analyze in this session will appear here.</p>';}
+function workflowReport(run){
+ if(!run)return '<p class="muted">Preparing the analysis…</p>';
+ const active=['queued','running'].includes(run.status);
+ return `<section class="answer" aria-busy="${active}"><div class="source-entry-heading"><h2>${esc(run.status==='completed'?'Report':run.status==='failed'?'Research needs attention':run.status==='cancelled'?'Stopped':'Research in progress')}</h2>${badge(run.status)}</div><p class="muted">${run.completed_queries.length} of ${run.queries.length||run.search_budget} searches completed · ${run.sources.length} sources</p>${run.queries.length?`<details data-disclosure-key="research-plan"><summary>Research plan</summary><ol>${run.queries.map(q=>`<li>${esc(q)}${run.completed_queries.includes(q)?' ✓':''}</li>`).join('')}</ol></details>`:''}${run.error_type?'<p class="error">The job could not finish. Completed evidence is retained; retry resumes from it.</p>':''}<div class="answer-text">${esc(run.report||'')}</div>${run.sources.length?`<h3 class="section-title">Sources</h3><ol class="source-links">${run.sources.map(s=>`<li>${safeUri(s.uri)?`<a href="${esc(safeUri(s.uri))}" target="_blank" rel="noopener noreferrer">[${esc(s.citation_id)}] ${esc(s.title||'Source')}${s.page?' · page '+esc(s.page):''}</a>`:`<span>[${esc(s.citation_id)}] ${esc(s.title||'Source')}${s.page?' · page '+esc(s.page):''}</span>`}</li>`).join('')}</ol>`:''}${run.warnings.length?`<ul class="warnings">${run.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:''}<div class="actions">${active?'<button type="button" class="btn" data-workflow="cancel">Stop</button>':''}${['failed','cancelled'].includes(run.status)?'<button type="button" class="btn" data-workflow="retry">Resume research</button>':''}${run.status==='completed'?`<a class="btn" href="${workflowRoute().download}">Download report</a>`:''}</div></section>`;
+}
+function workflowRoute(){const r=route();const documentRun=workflowState.document?.id===r.id?workflowState.documentRun:null;return r.view==='document'?{base:'/api/analysis/workspaces/'+encodeURIComponent(r.id),run:documentRun,download:'/api/analysis/workspaces/'+encodeURIComponent(r.id)+'/runs/'+encodeURIComponent(documentRun?.id||'')+'/report.md'}:{base:'/api/research/runs/'+encodeURIComponent(r.id),run:workflowState.run?.id===r.id?workflowState.run:null,download:'/api/research/runs/'+encodeURIComponent(r.id)+'/report.md'};}
+function workflowView(r){
+ if(!workflowRouteNames.has(r.view))return null;
+ const error=`<div class="error" role="alert" id="workflow-error">${esc(workflowState.error)}</div>`;
+ if(r.view==='research')return heading('Deep research','Build a grounded report from the collections you choose.')+`<div class="search-layout"><div><form id="research-form" class="surface pad"><div class="field"><label for="research-question">What would you like to research?</label><textarea id="research-question" required>${esc(workflowState.question||state.query)}</textarea></div><p class="muted">Local collections only. The job continues if you leave this page.</p><div class="field"><label for="research-budget">Search budget</label><input id="research-budget" type="number" min="1" value="${esc(workflowState.budget)}"><p class="muted">Maximum local evidence searches. The model may use fewer.</p></div>${error}<button class="btn primary" type="submit" ${state.selected.size?'':'disabled'}>Start research</button></form><h2 class="section-title">Your research</h2><div class="surface" id="workflow-list">${workflowRunList()}</div></div><aside class="search-options"><fieldset><legend>Collections</legend>${state.collections.map(c=>`<label class="check"><input type="checkbox" name="research-collection" value="${esc(c.id)}" ${state.selected.has(String(c.id))?'checked':''}><span>${esc(c.name)}</span></label>`).join('')}</fieldset><div class="field"><label for="research-backend">Search index</label><select id="research-backend"><option value="elasticsearch" ${state.backend==='elasticsearch'?'selected':''}>Elasticsearch</option><option value="milvus" ${state.backend==='milvus'?'selected':''}>Milvus</option></select></div><p class="muted">Select the collections relevant to your question.</p></aside></div>`;
+ if(r.view==='research-run')return `<a class="back" href="#research">Back to research</a>`+heading('Deep research',(workflowState.run?.id===r.id?workflowState.run.question:null)||'Loading your research…')+error+`<div id="workflow-live">${workflowReport(workflowRoute().run)}</div>`;
+ if(r.view==='analysis')return heading('Document analysis','Ask about a document without adding it to a collection.')+`<form id="analysis-upload" class="surface pad form-width"><div class="field"><label for="analysis-file">Document</label><input id="analysis-file" type="file" accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.md,.txt,.html,.htm" required><p class="muted">${esc(workflowState.uploadFile?.name||'PDF, Office documents, CSV, Markdown or text.')}</p></div><label class="check"><input id="analysis-captions" type="checkbox"><span>Generate captions for PDF images</span></label><div class="field"><label for="analysis-question">Initial question</label><textarea id="analysis-question" placeholder="Summarize this document, its key facts and material qualifications.">${esc(workflowState.documentQuestion)}</textarea></div><p class="muted">Private to this browser session. Expires after 24 hours by default. Add it to a collection only when you choose.</p>${error}<button class="btn primary" type="submit">Analyze document</button></form><h2 class="section-title">Your documents</h2><div class="surface" id="workflow-list">${workflowDocumentList()}</div>`;
+ const d=workflowState.document?.id===r.id?workflowState.document:null;
+ return `<a class="back" href="#analysis">Back to document analysis</a>`+heading(d?.filename||'Document analysis','Private analysis workspace')+error+`<section class="surface pad"><div id="document-status">${d?badge(d.ready?'ready':d.status):'Loading…'}</div><p class="muted" id="document-expiry">${d?'Expires '+esc(new Date(d.expires_at).toLocaleString()):''}</p><div class="actions"><a class="btn" href="/api/analysis/workspaces/${encodeURIComponent(r.id)}/file" target="_blank" rel="noopener">Open document</a><button type="button" class="btn" data-workflow="promote" ${d?'':'disabled'}>Add to collection</button><button type="button" class="btn danger" data-workflow="delete-document" ${d?'':'disabled'}>Delete now</button></div></section><form id="document-question-form" class="surface pad collection-section"><div class="field"><label for="document-question">Ask about this document</label><textarea id="document-question" required ${d?.ready?'':'disabled'}>${esc(workflowState.documentQuestion)}</textarea></div><button class="btn primary" type="submit" ${d?.ready?'':'disabled'}>Ask</button></form><div id="workflow-live">${workflowReport(d?workflowState.documentRun:null)}</div><div id="document-promotions"></div>`;
+}
+async function refreshWorkflows(){
+ const r=route();if(!workflowRouteNames.has(r.view)||workflowState.loading)return;workflowState.loading=true;
+ const epoch=workflowState.epoch;const active=()=>route().view===r.view&&route().id===r.id&&workflowState.epoch===epoch;
+ try{
+  await workflowSession();if(!active())return;
+  let data;
+  if(r.view==='research')data=await api('/api/research/runs');
+  if(r.view==='research-run')data=await api('/api/research/runs/'+encodeURIComponent(r.id));
+  if(r.view==='analysis')data=await api('/api/analysis/workspaces');
+  if(r.view==='document')data=await api('/api/analysis/workspaces/'+encodeURIComponent(r.id));
+  if(!active())return;
+  if(r.view==='research')workflowState.runs=data.runs;
+  if(r.view==='research-run')workflowState.run=workflowAccept(data,workflowState.run);
+  if(r.view==='analysis')workflowState.documents=data.workspaces;
+  if(r.view==='document'){workflowState.document=data;workflowState.documentRun=data.run?workflowAccept(data.run,workflowState.documentRun):null;workflowState.promotions=data.promotions||[];}
+  workflowState.error='';workflowState.loaded.add(r.view+'/'+r.id);
+ }catch(error){if(active())workflowState.error=error.message;}
+ finally{
+  workflowState.loading=false;if(!active())return;
+  if($('workflow-error'))$('workflow-error').textContent=workflowState.error;
+  if($('workflow-list'))$('workflow-list').innerHTML=r.view==='research'?workflowRunList():workflowDocumentList();
+  if($('workflow-live')){const expanded=[...$('workflow-live').querySelectorAll('details')].map(d=>d.open);$('workflow-live').innerHTML=workflowReport(workflowRoute().run);$('workflow-live').querySelectorAll('details').forEach((d,i)=>d.open=!!expanded[i]);}
+  if(r.view==='document'&&workflowState.document){const d=workflowState.document;$('document-status').innerHTML=badge(d.ready?'ready':d.status)+(d.captions?.generated||d.captions?.pending?`<p class="muted">Captions: ${esc(d.captions.generated||0)} generated · ${esc(d.captions.published||0)} published · ${esc(d.captions.pending||0)} generation pending</p>`:'');$('document-expiry').textContent='Expires '+new Date(d.expires_at).toLocaleString();$('document-question').disabled=!d.ready;$('document-question-form').querySelector('button').disabled=!d.ready;document.title=d.filename+' · Document analysis';const title=$('view')?.querySelector('h1');if(title)title.textContent=d.filename;if($('document-promotions'))$('document-promotions').innerHTML=workflowState.promotions.map(p=>`<p>${esc(p.destination_name||'Collection')}: ${badge(p.status)}</p>`).join('');}
+  bindWorkflowActions();workflowConnect();
+ }
+}
+function bindWorkflowActions(){document.querySelectorAll('[data-workflow]').forEach(button=>button.onclick=async()=>{
+ const action=button.dataset.workflow,r=route();button.disabled=true;
+ try{
+  if(action==='promote'){button.disabled=false;await promoteDocument();return;}
+  if(action==='delete-document'){if(!confirm('Delete this private workspace and its analysis? Copies already accepted for a collection are retained.'))return;await workflowWrite('/api/analysis/workspaces/'+encodeURIComponent(r.id),undefined,'DELETE');workflowState.document=null;workflowState.documentRun=null;location.hash='analysis';return;}
+  const w=workflowRoute();if(w.run){const base=r.view==='document'?w.base+'/runs/'+encodeURIComponent(w.run.id):w.base;await workflowWrite(base+'/'+action);}
+  await refreshWorkflows();
+ }catch(error){workflowState.error=error.message;if($('workflow-error'))$('workflow-error').textContent=error.message;}finally{button.disabled=false;}
+});}
+function bindWorkflows(){
+ const r=route();workflowConnect();if(!workflowRouteNames.has(r.view))return;
+ if(!workflowState.loaded.has(r.view+'/'+r.id))refreshWorkflows();bindWorkflowActions();
+ $('research-question')?.addEventListener('input',e=>{workflowState.question=e.target.value;workflowState.requestKey=null;});
+ $('research-budget')?.addEventListener('input',e=>workflowState.budget=Number(e.target.value));
+ $('research-backend')?.addEventListener('change',e=>{state.backend=e.target.value;});
+ document.querySelectorAll('input[name=research-collection]').forEach(el=>el.addEventListener('change',()=>{el.checked?state.selected.add(el.value):state.selected.delete(el.value);render();}));
+ $('research-form')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;setBusy(form,true);try{workflowState.requestKey||=workflowKey();const job=await workflowWrite('/api/research/runs',{question:$('research-question').value.trim(),collection_ids:[...state.selected],backend:state.backend,search_budget:Number($('research-budget').value),request_key:workflowState.requestKey});workflowState.run=job;workflowState.requestKey=null;location.hash=link('research-run',job.id);}catch(error){$('workflow-error').textContent=error.message;setBusy(form,false);}});
+ $('analysis-file')?.addEventListener('change',e=>{workflowState.uploadFile=e.target.files[0];$('analysis-captions').disabled=!/\.pdf$/i.test(workflowState.uploadFile?.name||'');if($('analysis-captions').disabled)$('analysis-captions').checked=false;});
+ $('analysis-question')?.addEventListener('input',e=>workflowState.documentQuestion=e.target.value);
+ $('analysis-upload')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;setBusy(form,true);try{const body=new FormData();body.append('file',workflowState.uploadFile);body.append('captions_enabled',String($('analysis-captions').checked));body.append('question',$('analysis-question').value.trim());const d=await workflowWrite('/api/analysis/workspaces',body);workflowState.document=d;workflowState.documentRun=null;workflowState.uploadFile=null;workflowState.documentQuestion='';location.hash=link('document',d.id);}catch(error){$('workflow-error').textContent=error.message;setBusy(form,false);}});
+ $('document-question')?.addEventListener('input',e=>workflowState.documentQuestion=e.target.value);
+ $('document-question-form')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;setBusy(form,true);try{const run=await workflowWrite('/api/analysis/workspaces/'+encodeURIComponent(r.id)+'/questions',{question:$('document-question').value.trim(),request_key:workflowKey()});if(route().view!==r.view||route().id!==r.id)return;workflowState.documentRun=run;workflowState.documentQuestion='';render();}catch(error){$('workflow-error').textContent=error.message;setBusy(form,false);}});
+}
+async function promoteDocument(){
+ const workspace=route().id;const dialog=$('dialog');let session=await workflowSession();if(route().view!=='document'||route().id!==workspace)return;
+ if(!session.authenticated){dialog.innerHTML=`<form id="promotion-login"><h2 id="dialog-title">Sign in to save to a collection</h2><div class="field"><label for="promotion-user">Username</label><input id="promotion-user" autocomplete="username" required></div><div class="field"><label for="promotion-password">Password</label><input id="promotion-password" type="password" autocomplete="current-password" required></div><p class="error" id="promotion-error"></p><div class="actions"><button class="btn" type="button" data-close>Cancel</button><button class="btn primary">Sign in</button></div></form>`;dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await workflowWrite('/api/session/login',{username:$('promotion-user').value,password:$('promotion-password').value});$('promotion-password').value='';dialog.close();if(route().view==='document'&&route().id===workspace)await promoteDocument();}catch(error){$('promotion-error').textContent=error.message;}};dialog.showModal();return;}
+ const choices=(await api('/api/session/collection-destinations')).collections;if(route().view!=='document'||route().id!==workspace)return;
+ dialog.innerHTML=`<form id="promotion-form"><h2 id="dialog-title">Add document to a collection</h2><p>A durable copy is retained in the destination after this private workspace expires.</p><div class="field"><label for="promotion-destination">Collection</label><select id="promotion-destination" required>${choices.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div><p class="error" id="promotion-error">${choices.length?'':'No destinations are available under your write permissions.'}</p><div class="actions"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary" ${choices.length?'':'disabled'}>Add to collection</button></div></form>`;dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();setBusy(e.currentTarget,true);try{await workflowWrite('/api/analysis/workspaces/'+encodeURIComponent(workspace)+'/promotions',{destination:$('promotion-destination').value,request_key:workflowKey()});dialog.close();message('Saving to the collection. Publication progress appears below.');refreshWorkflows();}catch(error){$('promotion-error').textContent=error.message;setBusy(e.currentTarget,false);}};dialog.showModal();
+}
+setInterval(()=>{if(!document.hidden&&typeof route==='function')refreshWorkflows();},5000);
+
+document.addEventListener('rag-session-changed',()=>{workflowState.epoch++;workflowState.stream?.close();workflowState.stream=null;workflowState.streamUrl='';workflowState.session=null;workflowState.runs=[];workflowState.documents=[];workflowState.run=null;workflowState.document=null;workflowState.documentRun=null;workflowState.uploadFile=null;workflowState.documentQuestion='';workflowState.loaded.clear();if(['document','research-run'].includes(route().view))render();});
+
+function workflowAccept(next,prior){return prior?.id===next.id&&Number(prior.event_cursor)>Number(next.event_cursor)?{...next,report:prior.report,event_cursor:prior.event_cursor}:next;}
+function workflowConnect(){
+ if(typeof EventSource==='undefined')return;
+ const r=route(),run=workflowRoute().run;
+ const active=run&&['queued','running'].includes(run.status);
+ const base=r.view==='document'?'/api/analysis/workspaces/'+encodeURIComponent(r.id)+'/runs/'+encodeURIComponent(run?.id||''):'/api/research/runs/'+encodeURIComponent(r.id);
+ const key=active?base:'';
+ if(workflowState.streamUrl===key)return;
+ workflowState.stream?.close();workflowState.stream=null;workflowState.streamUrl=key;
+ if(!active)return;
+ const source=new EventSource(base+'/events?after='+Number(run.event_cursor||0));workflowState.stream=source;
+ const accept=(event,apply)=>{if(workflowState.stream!==source)return;const current=r.view==='document'?workflowState.documentRun:workflowState.run;if(!current||current.id!==run.id||Number(event.lastEventId)<=Number(current.event_cursor||0))return;current.event_cursor=Number(event.lastEventId);apply(current,JSON.parse(event.data));};
+ source.addEventListener('delta',event=>accept(event,(current,data)=>{current.report+=data.text;const target=$('workflow-live')?.querySelector('.answer-text');if(target)target.textContent=current.report;}));
+ source.addEventListener('report_reset',event=>accept(event,current=>{current.report='';const target=$('workflow-live')?.querySelector('.answer-text');if(target)target.textContent='';}));
+ for(const name of ['progress','running','completed','failed','cancelled'])source.addEventListener(name,event=>accept(event,()=>refreshWorkflows()));
+ source.onerror=()=>{if(source.readyState===EventSource.CLOSED){source.close();workflowState.stream=null;workflowState.streamUrl='';}};
+}
+
+window.addEventListener('hashchange',()=>{const dialog=$('dialog');if(dialog?.open)dialog.close();workflowConnect();});

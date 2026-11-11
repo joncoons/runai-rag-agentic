@@ -89,6 +89,16 @@ def _unique_object(pairs):
 
 
 def load_artifact(root,sha256):
+    """Writer admission: verify retained bytes and enforce the current policy."""
+    return admit(read_artifact(root,sha256))
+
+
+def read_artifact(root,sha256):
+    """Read hash-verified immutable bytes without re-admitting historical data.
+
+    Publication/ACL authority must come from the caller's published catalog.
+    This helper grants no ingestion or writer admission authority.
+    """
     digest(sha256)
     path=Path(root).resolve()/(sha256+'.json')
     try:
@@ -101,4 +111,4 @@ def load_artifact(root,sha256):
     if hashlib.sha256(raw).hexdigest()!=sha256:raise Conflict('Artifact SHA-256 mismatch')
     try:artifact=json.loads(raw,object_pairs_hook=_unique_object)
     except (ValueError,UnicodeError) as e:raise Conflict('Invalid artifact JSON') from e
-    return admit(artifact)
+    return artifact

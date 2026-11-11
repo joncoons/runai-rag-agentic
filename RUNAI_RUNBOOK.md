@@ -228,3 +228,44 @@ Run the additive application migration job before starting the updated caption w
 Caption generation pending and captions awaiting publication are separate GUI counters. Generated captions become searchable only after parent-source admission and selected-store publication receipts. Identical image bytes reuse successful caption/vector inference within a collection only when the effective model/processing contract matches; failed or incomplete inference is not cached. Similar-looking images with different bytes are distinct inputs.
 
 Admission and writer memory must accommodate the retained publication artifacts. The supplied chart requests should be reviewed against the selected corpus and node capacity; out-of-memory restarts preserve the external durable queue but stop publication progress.
+
+## Search, research and private document analysis
+
+The left navigation separates **Search**, **Deep research** and **Document analysis**. Ordinary search keeps the global top-10 retrieval / top-5 reranking behavior. Deep research starts an owned durable local job; the user chooses collections, the search index and its search budget. It does not grant internet access. A CPU research worker retains checkpoints and report deltas in PostgreSQL; Redis delivers notifications and database leases recover missed notifications or stopped processes.
+
+Document analysis is opt-in infrastructure. It uses the existing qualified ingestion and NIM endpoints, with separate CPU extraction, caption, admission, writer, research, cleanup and scoped-MCP workers. Captions remain optional and asynchronous. No additional GPU allocation or device-plugin time-slicing configuration is introduced.
+
+Before enabling it, the operator must provide:
+
+1. A **separate PostgreSQL database and login role**, restricted to that database. The private role must not read permanent application tables. Exclude the entire private database from ordinary backups; do not include it through an unrestricted `pg_dumpall` backup.
+2. An **independent Redis instance**, not another logical database on permanent Redis. The chart starts one using an existing configuration Secret. Configure `dir /analysis-private/redis`, `appendonly yes`, `appendfsync always` and authentication. Use the same password in the private Redis URL. NetworkPolicy limits inbound Redis traffic to the API/private workers in this release; network enforcement requires the cluster's policy controller.
+3. A **dedicated artifact PVC** outside permanent source/artifact storage and its backup paths. Mount it at `/analysis-private`; runtime UID/GID 1000 must be able to create private `workspaces` and `redis` directories. Retention applies to this private storage, not to common model checkpoints or GPU caches.
+4. Dedicated Elasticsearch identities scoped only to **`rag_analysis_*`** indexes. The reader needs `read` and `view_index_metadata`; the writer additionally needs `write`, `create_index`, `delete_index` and index-management privileges needed for projection refresh/settings. Do not grant private identities access to permanent `rag_agentic_*` indexes. Provide the same trusted ES endpoint/CA already configured for the application.
+5. An existing runtime Secret with these exact keys:
+
+   | Key | Value supplied by the operator |
+   |---|---|
+   | `PRIVATE_POSTGRES_DSN` | Connection URL for the separate private database/role. |
+   | `PRIVATE_REDIS_URL` | Authenticated URL for this release's `RELEASE-analysis-redis.NAMESPACE.svc.cluster.local:6379/0`. |
+   | `PRIVATE_ES_READER_USER`, `PRIVATE_ES_READER_PASSWORD` | Private-index read identity. |
+   | `PRIVATE_ES_WRITER_USER`, `PRIVATE_ES_WRITER_PASSWORD` | Private-index writer/cleanup identity. |
+
+   Also provide a Redis configuration Secret with a `redis.conf` key, and a scope-signing Secret with a random `key` of at least 32 bytes. Mounting or logging provider/administrator credentials in agent prompts is never required. Keep Secret values and any local credential files out of Git.
+
+Complete `deployment/helm/values-private-analysis.yaml` with **Secret/PVC names**, then review an offline rendering:
+
+```bash
+helm template rag charts/agentic-rag --namespace REPLACE_NAMESPACE \
+  -f PRIVATE_BASE_VALUES.yaml \
+  -f deployment/helm/values-private-analysis.yaml > PRIVATE_RENDERED.yaml
+```
+
+Inspect the rendering before your normal approved Helm upgrade. The chart adds a private schema Job plus eight private CPU deployments (seven processing/MCP roles and Redis). Existing regular migrations install research/promotion tables. Workers wait for the private schema. The private backend never receives permanent database, permanent Redis, or permanent ES writer credentials. Model/tokenizer readiness and actual Run:ai lifecycle acceptance remain operator qualification gates; chart rendering alone does not establish a working deployment.
+
+Private workspaces default to **24 hours**. Ownership is tied to the browser session; copying a workspace URL does not grant access. Expiry or **Delete now** immediately fences HTTP/MCP/downloads and late publication. The cleanup worker stops/reaps expired work, removes scoped indexes, files, queue entries and content-bearing database rows, and leaves a content-free lifecycle record. Do not back up private working state into permanent corpus backups.
+
+**Add to collection** requires an existing explicit destination write grant in local admin configuration. Signing in alone does not supply that grant, and installation never adds `*` automatically. The action copies original bytes into ordinary durable intake. Its status becomes complete only after the external writer verifies every selected store, including Milvus when enrolled. A copy already accepted by the destination survives private expiry. Revocation fences new publications, including late captions, while preserving previously published source evidence.
+
+Qualification before sharing should cover upload/answer/source download, independent captions, owner isolation, immediate deletion and eventual physical cleanup, allowed/denied promotion, both selected-store receipts, local research cancellation/resume, stream reconnection and report download. A generic Helm install on another cluster has not been runtime-qualified by the repository's local tests.
+
+The new workflow chart source is version 0.2.0. Its private option has been rendered and contract-tested locally; a new packaged/tagged release has not been published. Use the chart source above when qualifying these workflows. Existing 0.1.0 release assets contain the earlier application layout.

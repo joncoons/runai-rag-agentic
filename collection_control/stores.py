@@ -14,7 +14,7 @@ from .repository import Conflict
 
 
 def require_handle(handle,suffix):
-    if not re.fullmatch(r'(?:rag_(?:agentic_)?[0-9a-f]{32}_[1-9][0-9]*|rag_agentic_(?:inc|native)_[0-9a-f]{32})_'+suffix,handle):
+    if not re.fullmatch(r'(?:rag_(?:(?:agentic|analysis)_)?[0-9a-f]{32}_[1-9][0-9]*|rag_agentic_(?:inc|native)_[0-9a-f]{32})_'+suffix,handle):
         raise Conflict('Only generated attempt-scoped physical handles are writable')
 
 

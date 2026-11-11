@@ -28,7 +28,7 @@ def decoded(value):
 
 class ControlRepository:
     def __init__(self, pool, *, handle_prefix="rag", incremental=False):
-        if handle_prefix not in ("rag", "rag_agentic"):raise Conflict("Invalid physical generation prefix")
+        if handle_prefix not in ("rag", "rag_agentic", "rag_analysis"):raise Conflict("Invalid physical generation prefix")
         self.pool = pool
         self.handle_prefix = handle_prefix
         self.incremental = incremental

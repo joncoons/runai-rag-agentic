@@ -1,0 +1,157 @@
+{{- if and .Values.application.enabled .Values.privateAnalysis.enabled }}
+{{- $root := . -}}
+{{- range $role := list "extraction" "caption" "admission" "writer" "research" "cleanup" "query-mcp" }}
+{{- $component := printf "analysis-%s" $role -}}
+{{- $spec := include "rag.resolve" (dict "text" ($root.Files.Get (printf "files/application/%s.json" $component)) "bindings" (include "rag.bindings" $root | fromJson)) | fromJson -}}
+{{- $_ := set $spec "schedulerName" $root.Values.runai.schedulerName -}}
+{{- $_ := set $spec "imagePullSecrets" $root.Values.imagePullSecrets -}}
+{{- $_ := set $spec "nodeSelector" $root.Values.application.nodeSelector -}}
+{{- $_ := set $spec "securityContext" (dict "fsGroup" 1000) -}}
+{{- $container := first $spec.containers -}}
+{{- $env := list -}}
+{{- range $item := $container.env }}{{- if not (and (eq $item.name "ES_CA") (not $root.Values.secrets.elasticsearchCA)) }}{{- $env = append $env $item -}}{{- end }}{{- end -}}
+{{- $_ := set $container "env" (concat $env (list (dict "name" "NVIDIA_VISIBLE_DEVICES" "value" "void") (dict "name" "CUDA_VISIBLE_DEVICES" "value" ""))) -}}
+{{- $mounts := list -}}{{- $volumes := list -}}
+{{- range $item := $container.volumeMounts }}{{- if not (and (eq $item.name "es-ca") (not $root.Values.secrets.elasticsearchCA)) }}{{- if and (eq $item.name "embedding-checkpoint") $root.Values.storage.checkpoint.subPath }}{{- $_ := set $item "subPath" $root.Values.storage.checkpoint.subPath -}}{{- end }}{{- $mounts = append $mounts $item -}}{{- end }}{{- end -}}
+{{- range $item := $spec.volumes }}{{- if not (and (eq $item.name "es-ca") (not $root.Values.secrets.elasticsearchCA)) }}{{- $volumes = append $volumes $item -}}{{- end }}{{- end -}}
+{{- range $filename := list "model-bindings.json" "model-contracts.json" "location-roots.json" -}}
+{{- $mounts = append $mounts (dict "name" "bindings" "mountPath" (printf "/app/config/%s" $filename) "subPath" $filename "readOnly" true) -}}
+{{- end -}}
+{{- $_ := set $container "volumeMounts" $mounts -}}
+{{- $_ := set $spec "volumes" (append $volumes (dict "name" "bindings" "configMap" (dict "name" (printf "%s-bindings" $root.Release.Name)))) -}}
+{{- $_ := set $spec "initContainers" (list (dict "name" "wait-for-private-schema" "image" $root.Values.application.image "command" (list "python" "-c" ($root.Files.Get "files/private_ready.py")) "env" $env "resources" (dict "requests" (dict "cpu" "50m" "memory" "64Mi") "limits" (dict "memory" "256Mi")) "securityContext" (dict "runAsUser" 1000 "runAsNonRoot" true "allowPrivilegeEscalation" false))) -}}
+{{ printf "\n---\n" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $root.Release.Name }}-{{ $component }}
+  labels: {{- include "rag.labels" $root | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $root.Release.Name | quote }}
+      app.kubernetes.io/component: {{ $component }}
+  template:
+    metadata:
+      labels:
+        {{- include "rag.labels" $root | nindent 8 }}
+        app.kubernetes.io/component: {{ $component }}
+        rag-private-client: "true"
+    spec: {{- toYaml $spec | nindent 6 }}
+{{- if eq $role "query-mcp" }}
+{{ printf "\n---\n" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $root.Release.Name }}-analysis-query-mcp
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $root.Release.Name | quote }}
+    app.kubernetes.io/component: analysis-query-mcp
+  ports: [{name: http, port: 8012, targetPort: 8012}]
+{{- end }}
+{{- end }}
+{{ printf "\n---\n" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-private-schema-{{ .Release.Revision }}
+  labels: {{- include "rag.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels: {{- include "rag.labels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      schedulerName: {{ .Values.runai.schedulerName }}
+      restartPolicy: Never
+      nodeSelector: {{- toYaml .Values.application.nodeSelector | nindent 8 }}
+      imagePullSecrets: {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      containers:
+        - name: migrate-private
+          image: {{ .Values.application.image | quote }}
+          command: [python, -m, application.private_bootstrap]
+          env:
+            - {name: POSTGRES_DSN, value: "postgresql://unavailable/permanent-not-mounted"}
+            - name: PRIVATE_POSTGRES_DSN
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.privateAnalysis.runtimeSecret }}, key: PRIVATE_POSTGRES_DSN}
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, allowPrivilegeEscalation: false}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+{{ printf "\n---\n" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-analysis-redis
+  labels: {{- include "rag.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/instance: {{ .Release.Name | quote }}, app.kubernetes.io/component: analysis-redis}
+  template:
+    metadata:
+      labels:
+        {{- include "rag.labels" . | nindent 8 }}
+        app.kubernetes.io/component: analysis-redis
+    spec:
+      automountServiceAccountToken: false
+      schedulerName: {{ .Values.runai.schedulerName }}
+      nodeSelector: {{- toYaml .Values.application.nodeSelector | nindent 8 }}
+      securityContext: {fsGroup: 1000}
+      imagePullSecrets: {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      initContainers:
+        - name: prepare-private-directories
+          image: {{ .Values.privateAnalysis.redisImage | quote }}
+          command: [sh, -c, "umask 077; mkdir -p /analysis-private/redis /analysis-private/workspaces"]
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, allowPrivilegeEscalation: false}
+          volumeMounts: [{name: private-artifacts, mountPath: /analysis-private}]
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {memory: 64Mi}
+      containers:
+        - name: redis
+          image: {{ .Values.privateAnalysis.redisImage | quote }}
+          command: [redis-server, /private-redis/redis.conf]
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, allowPrivilegeEscalation: false}
+          resources:
+            requests: {cpu: 125m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          readinessProbe: {tcpSocket: {port: 6379}, periodSeconds: 10}
+          volumeMounts:
+            - {name: private-artifacts, mountPath: /analysis-private}
+            - {name: private-redis, mountPath: /private-redis, readOnly: true}
+      volumes:
+        - name: private-artifacts
+          persistentVolumeClaim: {claimName: {{ .Values.privateAnalysis.artifactClaim }}}
+        - name: private-redis
+          secret: {secretName: {{ .Values.privateAnalysis.redisConfigSecret }}}
+{{ printf "\n---\n" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-analysis-redis
+spec:
+  selector: {app.kubernetes.io/instance: {{ .Release.Name | quote }}, app.kubernetes.io/component: analysis-redis}
+  ports: [{name: redis, port: 6379, targetPort: 6379}]
+{{ printf "\n---\n" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-analysis-redis
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/instance: {{ .Release.Name | quote }}, app.kubernetes.io/component: analysis-redis}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/instance: {{ .Release.Name | quote }}, rag-private-client: "true"}
+      ports: [{protocol: TCP, port: 6379}]
+{{- end }}

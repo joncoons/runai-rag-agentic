@@ -1,6 +1,6 @@
 async page => {
   // Run from the repository root against the loopback-only fictional preview.
-  const origin='http://127.0.0.1:8099';
+  const origin=new URL(page.url()).origin;
   const fixture=await (await page.request.get(origin+'/api/status')).json();
   if(fixture.status!=='demo_preview')throw Error('Refusing to capture a non-demo backend');
   await page.request.post(origin+'/api/session/logout');
@@ -51,8 +51,13 @@ async page => {
   await page.locator('input[name=collection][value="atlas-reference"]').check();await page.locator('#backend').selectOption('milvus');
   await fill({'#query':'Where are the Atlas commissioning checklists?'});await page.locator('#search-form button[type=submit]').click();
   await page.waitForFunction(()=>state.result&&!state.searching);await shot('13-search-results');
-  await open('#search/atlas-reference');await fill({'#query':'Compare the Atlas commissioning requirements across the selected guides.'});await page.locator('input[name=mode][value=deep_research]').check();await shot('14-deep-research-choice');
-  await page.locator('input[name=mode][value=search]').check();await page.locator('[data-action=no-collections]').click();
+  await open('#research');await page.locator('input[name=research-collection][value="atlas-reference"]').check();
+  await fill({'#research-question':'Compare the Atlas commissioning requirements across the selected guides.'});await shot('14-deep-research-choice');
+  await open('#research-run/atlas-research');await page.waitForFunction(()=>workflowState.run?.status==='completed');await shot('20-research-report');
+  await open('#analysis');await page.locator('#analysis-file').setInputFiles([{name:'Atlas-Operator-Guide.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nFictional upload preview.\n')}]);
+  await page.locator('#analysis-captions').check();await fill({'#analysis-question':'Which checks are required before commissioning?'});await shot('21-document-analysis-upload');
+  await open('#document/atlas-private-guide');await page.waitForFunction(()=>workflowState.document?.ready);await shot('22-private-document-answer');
+  await open('#search/atlas-reference');await page.locator('[data-action=no-collections]').click();
   await fill({'#query':'What can this workspace help me find?'});await page.locator('#search-form button[type=submit]').click();
   await page.waitForFunction(()=>state.result&&!state.searching);await shot('15-model-only-search');
   await open('#collection/service-bulletins');await page.locator('[data-action=milvus]').click();await shot('16-duplicate-to-milvus');await page.locator('#dialog [data-close]').click();
@@ -60,5 +65,5 @@ async page => {
   await open('#admin');await page.waitForSelector('#admin-login');await fill({'#admin-username':'demo-admin'});await shot('18-admin-login');
   await page.evaluate(async()=>{await api('/api/session/login',{method:'POST',body:'{}'});await loadAdmin();});
   await page.waitForSelector('#admin-register-location');await fill({'#admin-location-alias':'atlas-briefings','#admin-location-path':'/source-roots/approved/atlas/briefings'});await shot('19-admin-locations');
-  return {screenshots:20,fictional:true,horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)};
+  return {screenshots:23,fictional:true,horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)};
 }

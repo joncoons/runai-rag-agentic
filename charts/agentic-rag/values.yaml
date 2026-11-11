@@ -14,6 +14,7 @@ application:
   - foreground
   - caption
   - query-mcp
+  - research
   - refresh
   - caption-admission
   - page-extraction
@@ -219,3 +220,12 @@ bindings:
   TABLE_STRUCTURE_CHECKPOINT_MANIFEST_SHA256: REPLACE_TABLE_STRUCTURE_CHECKPOINT_MANIFEST_SHA256
   TABLE_STRUCTURE_ENDPOINT: REPLACE_TABLE_STRUCTURE_ENDPOINT
   TABLE_STRUCTURE_PLATFORM_IMAGE_DIGEST: REPLACE_TABLE_STRUCTURE_PLATFORM_IMAGE_DIGEST
+
+# Existing isolated identities/storage are provided by the operator. No grants are widened.
+privateAnalysis:
+  enabled: false
+  runtimeSecret: rag-private-runtime
+  scopeSecret: rag-private-scope
+  redisConfigSecret: rag-private-redis
+  artifactClaim: rag-private-artifacts
+  redisImage: redis:7-alpine

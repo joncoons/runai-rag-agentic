@@ -39,7 +39,7 @@ class BodyLimitMiddleware:
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http' or scope.get('method') not in ('POST', 'PUT', 'PATCH'):
             return await self.app(scope, receive, send)
-        limit = MAX_REQUEST_BYTES if scope.get('path', '').endswith('/ingestions') else 2 * 1024 * 1024
+        limit = MAX_REQUEST_BYTES if (scope.get('path', '').endswith('/ingestions') or scope.get('path') == '/api/analysis/workspaces') else 2 * 1024 * 1024
         headers = dict(scope.get('headers', []))
         try:
             length = int(headers.get(b'content-length', b'0'))
@@ -554,6 +554,12 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
     from application.search_stream_api import install_stream_routes
     install_stream_routes(app,search_service)
 
+    from application.promotions import install_promotion_routes
+    install_promotion_routes(app)
+    from application.private_api import install_private_routes
+    install_private_routes(app)
+    from application.research_api import install_research_routes
+    install_research_routes(app,search_service)
     from application.local_auth import install_auth_routes
     install_auth_routes(app)
     from application.admin_locations import install_admin_routes
@@ -561,7 +567,7 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
 
     static_root = Path(__file__).parent / 'static'
     app.mount('/static', StaticFiles(directory=static_root), name='static')
-    asset_versions={name:hashlib.sha256((static_root/name).read_bytes()).hexdigest()[:16] for name in ('app.js','app.css','admin.js','search-stream.js')}
+    asset_versions={name:hashlib.sha256((static_root/name).read_bytes()).hexdigest()[:16] for name in ('app.js','app.css','admin.js','search-stream.js','workflows.js')}
     @app.get('/')
     async def index():
         body=(static_root/'index.html').read_text()

@@ -35,3 +35,30 @@ class LegalEvidenceTests(unittest.IsolatedAsyncioTestCase):
   fetch=AsyncMock(return_value=[])
   await query._published_fetch(fetch,{'handles':{'milvus':'rag_agentic_native_'+'a'*32+'_mv'},'operation_id':'op','versions':{'main','legal'},'legal_versions':{'legal'}},'milvus',[1],channel='legal')
   self.assertEqual(fetch.await_args.kwargs['versions'],['legal'])
+ async def test_reading_published_legal_roles_does_not_reapply_new_admission_policy(self):
+  import hashlib,tempfile
+  from pathlib import Path
+  from application.legal_evidence import snapshot_legal_hashes
+  from collection_control.artifacts import canonical,load_artifact
+  from collection_control.repository import Conflict
+  record={'record_id':'historically-published','text':'Retained legal terms.','vector':[1.0]+[0.0]*2047,'metadata':{'origin':'derived','source_id':'historical-source','source_revision_id':'historical-revision','content_role':'legal_disclosure','web_enrichment_derivation':{'policy':'retained-web-enrichment.v1'}}}
+  artifact={'contract':{'dimensions':2048,'dtype':'float32','normalization':'unit','metric':'IP','schema_version':1,'embedding_checkpoint_sha256':'a'*64},'records':[record]}
+  raw=canonical(artifact);sha=hashlib.sha256(raw).hexdigest()
+  with tempfile.TemporaryDirectory() as folder:
+   root=Path(folder);path=root/(sha+'.json');path.write_bytes(raw)
+   with self.assertRaisesRegex(Conflict,'Derived web page'):load_artifact(root,sha)
+   self.assertEqual(snapshot_legal_hashes(root,sha),frozenset([record_digest(record)]))
+   snapshot_legal_hashes.cache_clear();path.write_bytes(raw+b' ')
+   with self.assertRaisesRegex(Conflict,'SHA-256 mismatch'):snapshot_legal_hashes(root,sha)
+ async def test_background_legal_classification_streams_snapshot_records(self):
+  import hashlib,tempfile
+  from pathlib import Path
+  from unittest.mock import patch
+  import application.legal_evidence as module
+  from collection_control.artifacts import canonical
+  records=[{'record_id':'primary','text':'Literal brace } and café 😀','vector':[1.0]+[0.0]*2047,'metadata':{'content_role':'primary'}},{'record_id':'legal','text':'Terms \\"quoted\\" café 😀','vector':[1.0]+[0.0]*2047,'metadata':{'content_role':'legal_disclosure'}}]
+  raw=canonical({'contract':{'dimensions':2048},'records':records});sha=hashlib.sha256(raw).hexdigest()
+  with tempfile.TemporaryDirectory() as folder:
+   root=Path(folder);(root/(sha+'.json')).write_bytes(raw)
+   with patch.object(module,'_CHUNK_BYTES',23):
+    self.assertEqual(module.snapshot_legal_hashes(root,sha),frozenset([record_digest(records[1])]))

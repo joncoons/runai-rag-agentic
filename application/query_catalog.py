@@ -11,14 +11,14 @@ CATALOG_SQL='''SELECT a.collection_id,c.revision,c.contract_sha256,o.operation_i
  WHERE NOT c.deleted AND o.status='published' '''
 
 class QueryCatalog:
-    def __init__(self,pool,*,snapshots=None,refresh_seconds=None):
-        self.pool=pool;self.snapshots=snapshots
+    def __init__(self,pool,*,snapshots=None,refresh_seconds=None,allowed_collection_ids=None):
+        self.pool=pool;self.snapshots=snapshots;self.allowed=allowed_collection_ids
         self.interval=float(refresh_seconds if refresh_seconds is not None else os.environ.get('QUERY_COLLECTION_REFRESH_SECONDS','5'))
         if not 1<=self.interval<=3600:raise ValueError('Invalid collection metadata refresh interval')
         self.entries={};self.ready=False;self.task=None
 
     async def refresh(self):
-        rows=await self.pool.fetch(CATALOG_SQL,timeout=30);updated={}
+        rows=await self.pool.fetch(CATALOG_SQL+(' AND a.collection_id=ANY($1::text[])' if self.allowed is not None else ''),*([self.allowed] if self.allowed is not None else []),timeout=30);updated={}
         for row in rows:
             data=dict(row);previous=self.entries.get(data['collection_id'])
             data['handles']=json.loads(data['handles']) if isinstance(data['handles'],str) else dict(data['handles'])

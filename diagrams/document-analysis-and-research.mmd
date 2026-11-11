@@ -1,0 +1,22 @@
+flowchart TD
+    U[User selects a workflow in the left navigation]
+    U --> S[Search: selected collections or model only]
+    U --> R[Deep research: explicit collections, index and budget]
+    U --> D[Document analysis: private expiring upload]
+    R --> J[PostgreSQL job, evidence checkpoints and streamed report]
+    J <-->|delivery and recovery| Q[Redis notifications and fenced worker leases]
+    J --> M[Scoped read-only MCP and shared qualified models]
+    M --> J
+    D --> P[Private PostgreSQL, Redis and artifact storage]
+    P --> X[Qualified native text extraction]
+    X --> W[Independent private vector writer]
+    X -. optional async image work .-> C[Separate capped-retry caption worker]
+    C --> W
+    W --> E[Private Elasticsearch projection and owned questions]
+    E --> M
+    D --> A[Explicit Add to collection with destination write permission]
+    A --> I[Copy original into ordinary durable intake]
+    I --> V[External writer verifies Elasticsearch and enrolled Milvus]
+    D --> T[Expiry or Delete now immediately fences access]
+    T --> F[Cleanup private indexes, files, queues and content rows]
+    V --> K[Accepted permanent copy survives private expiry]

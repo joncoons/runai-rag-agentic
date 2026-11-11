@@ -20,12 +20,22 @@
 {{- $env = append $env $item -}}
 {{- end -}}
 {{- end -}}
+{{- if and (eq $role "api") $root.Values.privateAnalysis.enabled -}}
+{{- range $key,$source := dict "PRIVATE_POSTGRES_DSN" "PRIVATE_POSTGRES_DSN" "PRIVATE_REDIS_URL" "PRIVATE_REDIS_URL" "PRIVATE_ES_USER" "PRIVATE_ES_READER_USER" "PRIVATE_ES_PASSWORD" "PRIVATE_ES_READER_PASSWORD" -}}
+{{- $env = append $env (dict "name" $key "valueFrom" (dict "secretKeyRef" (dict "name" $root.Values.privateAnalysis.runtimeSecret "key" $source))) -}}
+{{- end -}}
+{{- $env = append $env (dict "name" "PRIVATE_ARTIFACT_ROOT" "value" "/analysis-private/workspaces") -}}
+{{- end -}}
 {{- $env = concat $env (list (dict "name" "NVIDIA_VISIBLE_DEVICES" "value" "void") (dict "name" "CUDA_VISIBLE_DEVICES" "value" "")) -}}
 {{- $_ := set $container "env" $env -}}
 {{- $mounts := list -}}
 {{- range $item := $container.volumeMounts }}{{- if not (and (eq $item.name "es-ca") (not $root.Values.secrets.elasticsearchCA)) }}{{- if and (eq $item.name "embedding-checkpoint") $root.Values.storage.checkpoint.subPath }}{{- $_ := set $item "subPath" $root.Values.storage.checkpoint.subPath -}}{{- end -}}{{- $mounts = append $mounts $item -}}{{- end }}{{- end -}}
 {{- $volumes := list -}}
 {{- range $item := $spec.volumes }}{{- if not (and (eq $item.name "es-ca") (not $root.Values.secrets.elasticsearchCA)) }}{{- $volumes = append $volumes $item -}}{{- end }}{{- end -}}
+{{- if and (eq $role "api") $root.Values.privateAnalysis.enabled -}}
+{{- $mounts = append $mounts (dict "name" "private-artifacts" "mountPath" "/analysis-private") -}}
+{{- $volumes = append $volumes (dict "name" "private-artifacts" "persistentVolumeClaim" (dict "claimName" $root.Values.privateAnalysis.artifactClaim)) -}}
+{{- end -}}
 {{- range $filename := list "model-bindings.json" "model-contracts.json" "location-roots.json" -}}
 {{- $mounts = append $mounts (dict "name" "bindings" "mountPath" (printf "/app/config/%s" $filename) "subPath" $filename "readOnly" true) -}}
 {{- end -}}
@@ -74,6 +84,9 @@ spec:
       labels:
         {{- include "rag.labels" $root | nindent 8 }}
         app.kubernetes.io/component: {{ $role | quote }}
+        {{- if and (eq $role "api") $root.Values.privateAnalysis.enabled }}
+        rag-private-client: "true"
+        {{- end }}
       annotations:
         checksum/config: {{ printf "%s%s" (include "rag.bindings" $root) (toJson $root.Values.configuration) | sha256sum }}
     spec:

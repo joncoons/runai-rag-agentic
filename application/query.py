@@ -297,11 +297,17 @@ class RAGQuery:
         from mcp.client.streamable_http import streamable_http_client
         try:
             async with asyncio.timeout(180):
-                async with streamable_http_client(self.mcp_url) as (read, write):
-                    async with ClientSession(read, write) as client:
-                        await client.initialize()
-                        result = await client.call_tool('query_evidence', {'query': query,
-                            'collection_ids': collection_ids, 'backend': backend,'include_legal':include_legal})
+                from contextlib import AsyncExitStack
+                async with AsyncExitStack() as stack:
+                    options={}
+                    if getattr(self,'mcp_headers',None):
+                        import httpx2
+                        options['http_client']=await stack.enter_async_context(httpx2.AsyncClient(headers=self.mcp_headers,timeout=180))
+                    async with streamable_http_client(self.mcp_url,**options) as (read, write):
+                        async with ClientSession(read, write) as client:
+                            await client.initialize()
+                            result = await client.call_tool('query_evidence', {'query': query,
+                                'collection_ids': collection_ids, 'backend': backend,'include_legal':include_legal})
         except Conflict:
             raise
         except Exception as error:

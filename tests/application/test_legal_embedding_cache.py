@@ -8,9 +8,10 @@ class LegalEmbeddingCacheTests(unittest.IsolatedAsyncioTestCase):
   import asyncpg
   dsn=os.environ['COLLECTION_TEST_DSN']
   from urllib.parse import urlsplit
-  parsed=urlsplit(dsn)
-  if parsed.hostname not in ('127.0.0.1','localhost') or parsed.path!='/qualification' or parsed.username!='qualification':raise RuntimeError('Isolated qualification DB only')
+  if urlsplit(dsn).hostname not in ('127.0.0.1','localhost'):raise RuntimeError('Loopback qualification DB only')
   self.pool=await asyncpg.create_pool(dsn,min_size=1,max_size=2)
+  if tuple(await self.pool.fetchrow('SELECT current_database(),current_user'))!=('qualification','qualification'):
+   await self.pool.close();raise RuntimeError('Isolated qualification DB identity required')
   await self.pool.execute(Path('deployment/application/010_legal_content_reuse.sql').read_text())
   await self.pool.execute('TRUNCATE application.legal_text_embeddings,application.legal_text_content')
   self.cache=LegalEmbeddingCache(self.pool);self.text='The fee is $10. No exceptions.';self.sha=hashlib.sha256(self.text.encode()).hexdigest();self.key='a'*64

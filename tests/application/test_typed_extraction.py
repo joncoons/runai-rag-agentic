@@ -54,3 +54,19 @@ class TypedExtractionTests(unittest.IsolatedAsyncioTestCase):
                 artifact,downstream=await stager.stage(e,[])
             self.assertEqual(downstream[0][0],'rag.agentic.index')
             self.assertEqual(downstream[0][1].artifact_uri,artifact.final_uri)
+
+    async def test_private_html_never_uses_unscoped_legal_text_cache(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'raw').mkdir();raw=b'<main><h1>Private policy</h1><p>Private facts.</p><section id="disclaimer">Private legal terms.</section></main>'
+            path=root/'raw'/'source.html';path.write_bytes(raw);inspected=inspect_document('source.html',raw)
+            units={'schema_version':'native-source-units.v1','source_kind':inspected['source_kind'],'transform':inspected['transform'],'units':inspected['units']}
+            row={'source_kind':'html','source_units':units,'raw_sha256':hashlib.sha256(raw).hexdigest(),'filename':'source.html'}
+            pool=SimpleNamespace(fetchrow=AsyncMock(return_value=row))
+            envelope=StageEnvelope(job_id=str(uuid4()),document_id='private-html',stage=Stage.EXTRACTION,artifact_uri=path.as_uri(),idempotency_key='sha256:'+'a'*64,pipeline_version='test',config_digest='sha256:'+'b'*64,model_digest='sha256:'+'c'*64)
+            class Embedding:
+                def process(self,frame):return frame
+            class Stager:
+                async def stage(self,envelope,rows):return (await JsonResultStager(root).stage(envelope,{'schema_version':'1.0','payload_format':'es_docs','documents':rows}))[0],()
+            processor=TypedExtractionProcessor(pool,None,root=root/'stages',embedding=Embedding(),stager=Stager(),reuse_legal=False)
+            processor._embed_with_reuse=AsyncMock(side_effect=AssertionError('Private content entered unscoped cache'))
+            await processor.process(envelope);processor._embed_with_reuse.assert_not_awaited()

@@ -64,7 +64,7 @@ def inspect_linked_image(raw,media_type):
     return {'source_kind':'web_image','media_type':media_type,'page_count':None,'source_units':None}
 
 
-async def submit(context,collection_id,uploads,*,captions_enabled=False,_web_captures=None,_web_group=None,_refresh=None,_streamed=False,_inspections=None):
+async def submit(context,collection_id,uploads,*,captions_enabled=False,_web_captures=None,_web_group=None,_refresh=None,_streamed=False,_inspections=None,_promotion=None):
     if not isinstance(captions_enabled,bool):raise ValueError('captions_enabled must be boolean')
     settings=context.settings;job=uuid4();capture=str(uuid4());observed=datetime.now(timezone.utc)
     config=embedding_config(settings);prepared=[];seen=set()
@@ -87,7 +87,8 @@ async def submit(context,collection_id,uploads,*,captions_enabled=False,_web_cap
         seen.add(dedupe)
         source_id='source:'+hashlib.sha256((collection_id+'\0'+source_uri).encode()).hexdigest()
         revision='capture:'+uuid4().hex;document='sha256:'+hashlib.sha256((str(job)+'\0'+source_uri+'\0'+source_sha).encode()).hexdigest()
-        raw_uri,_=retain(settings.raw,raw,Path(filename).suffix.lower())
+        raw_root=settings.raw/'promotions'/str(_promotion) if _promotion is not None else settings.raw
+        raw_uri,_=retain(raw_root,raw,Path(filename).suffix.lower())
         key='sha256:'+hash_value({'job':str(job),'document':document,'source':source_sha,'captions_enabled':captions_enabled,'pipeline':PIPELINE})
         envelope=StageEnvelope(job_id=str(job),document_id=document,stage=Stage.EXTRACTION,artifact_uri=raw_uri,idempotency_key=key,pipeline_version=PIPELINE,config_digest='sha256:'+config,model_digest='sha256:'+settings.contract['embedding_checkpoint_sha256'])
         if captured and captured.get('role')=='image':
@@ -112,12 +113,17 @@ async def submit(context,collection_id,uploads,*,captions_enabled=False,_web_cap
     async with context.pool.acquire() as c,c.transaction():
         col=await c.fetchrow('SELECT * FROM collection_control.collections WHERE collection_id=$1 FOR UPDATE',collection_id)
         if not col or col['deleted']:raise Conflict('Collection is unavailable')
+        promotion_origin=None
+        if _promotion is not None:
+            from .promotions import authorize_intake
+            promotion_origin=await authorize_intake(c,_promotion,collection_id,prepared)
         # v2 intake grants queue/discovery authority only. Full graph/source
         # validation belongs to fenced publication admission, not acquisition.
         if group and group['manifest']['schema_version']!='web-page-group.v2':
             from collection_control.web_groups import resolve_graph,merge_graph
             merge_graph(await resolve_graph(c,col),group['manifest'])
         metadata={'application':APP,'acl':['local-operator'],'ingestion_run_id':capture,'ingestion_options':{'captions_enabled':captions_enabled,'office_visuals_enabled':any(i['source_kind'] in ('docx','pptx') for i in prepared)},'source_manifests':{}}
+        if promotion_origin:metadata['promotion_origin']=promotion_origin
         if _refresh is not None:metadata['source_run_id']=str(_refresh['run_id'])
         if any(isinstance(i.get('acquisition'),dict) and i['acquisition'].get('kind')=='location' for i in prepared):metadata['ingestion_options']['connector_kind']='location'
         await c.execute("INSERT INTO public.jobs(job_id,corpus_namespace,status,pipeline_version,metadata) VALUES($1,$2,'accepted',$3,$4::jsonb)",job,collection_id,PIPELINE,json.dumps(metadata))
@@ -139,6 +145,8 @@ async def submit(context,collection_id,uploads,*,captions_enabled=False,_web_cap
         if _refresh is not None:
             from .source_registry import SourceRegistry
             await SourceRegistry(context.pool).accept(c,**_refresh,job_id=job)
+        if _promotion is not None:
+            await c.execute("UPDATE application.document_promotions SET status='submitted',job_id=$2 WHERE promotion_id=$1",_promotion,job)
         await c.execute("INSERT INTO application.events(job_id,event_type,payload) VALUES($1,'intake_committed',$2::jsonb)",job,json.dumps({'documents':len(prepared),'captions_enabled':captions_enabled}))
     return str(job)
 

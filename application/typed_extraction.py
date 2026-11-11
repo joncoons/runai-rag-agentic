@@ -15,8 +15,8 @@ from collection_control.provenance import verified_file
 
 
 class TypedExtractionProcessor:
-    def __init__(self,pool,pdf,*,root,raw_root=None,embedding=None,stager=None):
-        self.pool=pool;self.pdf=pdf;self.root=Path(root);self.raw_root=Path(raw_root) if raw_root is not None else self.root.parent/'raw';self.embedding=embedding;self.stager=stager
+    def __init__(self,pool,pdf,*,root,raw_root=None,embedding=None,stager=None,reuse_legal=True):
+        self.pool=pool;self.pdf=pdf;self.root=Path(root);self.raw_root=Path(raw_root) if raw_root is not None else self.root.parent/'raw';self.embedding=embedding;self.stager=stager;self.reuse_legal=reuse_legal
 
     def _dependencies(self):
         if self.embedding is None:
@@ -24,7 +24,7 @@ class TypedExtractionProcessor:
             from nv_ingest_durable.embedding import RemoteEmbedding
             _,params=_model_params()
             import nv_ingest_durable.embedding as module
-            manifest=json.loads(Path(os.environ.get('EMBED_INPUT_CONTRACT', str(Path(module.__file__).with_name('embedding-input-contract.json')))).read_text())
+            manifest=json.loads(Path(module.__file__).with_name('embedding-input-contract.json').read_text())
             self.embedding=RemoteEmbedding(params,checkpoint=os.environ['EMBED_CHECKPOINT_DIR'],expected_files=manifest)
         if self.stager is None:
             from nv_ingest_durable.stage_processing import FusedCheckpointStager
@@ -72,7 +72,7 @@ class TypedExtractionProcessor:
                 import copy
                 embedding_units=copy.deepcopy(units);embedding_units['units'][0]['text']=text
         self._dependencies()
-        frame=(await self._embed_with_reuse(embedding_units,envelope) if revision['source_kind']=='html' and units['transform']['version']=='4' else await asyncio.to_thread(self._embed,embedding_units,envelope))
+        frame=(await self._embed_with_reuse(embedding_units,envelope) if self.reuse_legal and revision['source_kind']=='html' and units['transform']['version']=='4' else await asyncio.to_thread(self._embed,embedding_units,envelope))
         artifact,downstream=await self.stager.stage(envelope,frame.to_dict(orient='records'))
         path=Path(__import__('urllib.parse',fromlist=['urlparse']).urlparse(artifact.temporary_uri).path)
         body=json.loads(path.read_text())

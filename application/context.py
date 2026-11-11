@@ -2,7 +2,7 @@ import asyncio
 import ssl
 import aiohttp
 import asyncpg
-from collection_control.admission_repository import ProvenanceRepository
+from .promotion_control import PromotionControl as ProvenanceRepository
 from collection_control.incremental import IncrementalElasticsearch as ElasticsearchProjection,IncrementalMilvus as MilvusProjection
 from collection_control.writer import GenerationWriter
 from .settings import Settings
@@ -21,4 +21,6 @@ class Context:
         self.writer=GenerationWriter(self.control,self.settings.snapshots,self.stores)
         return self
     async def close(self):
+        private=getattr(self,'_private_context',None)
+        if private is not None:await private.close()
         await self.http.close();await self.es_http.close();await self.pool.close()

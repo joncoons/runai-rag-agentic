@@ -1,0 +1,394 @@
+{
+  "automountServiceAccountToken": false,
+  "containers": [
+    {
+      "name": "application",
+      "image": "${APPLICATION_IMAGE}",
+      "imagePullPolicy": "Always",
+      "command": [
+        "python"
+      ],
+      "args": [
+        "-m",
+        "application.private_worker"
+      ],
+      "env": [
+        {
+          "name": "POSTGRES_DSN",
+          "value": "postgresql://unavailable/permanent-not-mounted"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://permanent-not-mounted.invalid:6379/0"
+        },
+        {
+          "name": "ARTIFACT_ROOT",
+          "value": "/permanent-not-mounted"
+        },
+        {
+          "name": "MODEL_BINDINGS_FILE",
+          "value": "/app/config/model-bindings.json"
+        },
+        {
+          "name": "INGEST_STREAM_PREFIX",
+          "value": "rag.agentic"
+        },
+        {
+          "name": "ES_ENDPOINT",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${RUNTIME_SECRET}",
+              "key": "ES_ENDPOINT"
+            }
+          }
+        },
+        {
+          "name": "MILVUS_URI",
+          "value": "http://unused-private.invalid"
+        },
+        {
+          "name": "ES_CA",
+          "value": "/etc/rag-agentic-es/ca.crt"
+        },
+        {
+          "name": "LLM_ENDPOINT",
+          "value": "${LLM_ENDPOINT}"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+        },
+        {
+          "name": "OCR_MODEL_DIGEST",
+          "value": "${OCR_MODEL_DIGEST}"
+        },
+        {
+          "name": "CAPTION_MODEL_DIGEST",
+          "value": "${CAPTION_MODEL_DIGEST}"
+        },
+        {
+          "name": "QUERY_MCP_URL",
+          "value": "http://rag-agentic-query-mcp.${NAMESPACE}.svc.cluster.local:8011/mcp"
+        },
+        {
+          "name": "ES_USER",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${PRIVATE_RUNTIME_SECRET}",
+              "key": "PRIVATE_ES_READER_USER"
+            }
+          }
+        },
+        {
+          "name": "ES_PASSWORD",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${PRIVATE_RUNTIME_SECRET}",
+              "key": "PRIVATE_ES_READER_PASSWORD"
+            }
+          }
+        },
+        {
+          "name": "LOCATION_REGISTRY_DATABASE",
+          "value": "true"
+        },
+        {
+          "name": "LOCATION_ROOTS_FILE",
+          "value": "/app/config/location-roots.json"
+        },
+        {
+          "name": "EMBED_INPUT_CONTRACT",
+          "value": "/app/config/embedding-input-contract.json"
+        },
+        {
+          "name": "MODEL_CONTRACTS_FILE",
+          "value": "/app/config/model-contracts.json"
+        },
+        {
+          "name": "PAGE_ELEMENTS_URL",
+          "value": "${PAGE_ELEMENTS_URL}"
+        },
+        {
+          "name": "TABLE_STRUCTURE_URL",
+          "value": "${TABLE_STRUCTURE_URL}"
+        },
+        {
+          "name": "OCR_URL",
+          "value": "${OCR_URL}"
+        },
+        {
+          "name": "CAPTION_URL",
+          "value": "${CAPTION_URL}"
+        },
+        {
+          "name": "CAPTION_MODEL",
+          "value": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        {
+          "name": "EMBED_URL",
+          "value": "${EMBED_URL}"
+        },
+        {
+          "name": "EMBED_MODEL",
+          "value": "nvidia/Nemotron-3.5-Embed-1B-NVFP4"
+        },
+        {
+          "name": "EMBED_DIMENSIONS",
+          "value": "2048"
+        },
+        {
+          "name": "EMBED_CHECKPOINT_DIR",
+          "value": "/model/embed"
+        },
+        {
+          "name": "EMBED_MODEL_DIGEST",
+          "value": "${EMBED_MODEL_DIGEST}"
+        },
+        {
+          "name": "EMBED_CONFIG_DIGEST",
+          "value": "${EMBED_CONFIG_DIGEST}"
+        },
+        {
+          "name": "INDEX_MODEL_DIGEST",
+          "value": "${INDEX_MODEL_DIGEST}"
+        },
+        {
+          "name": "INDEX_CONFIG_DIGEST",
+          "value": "${INDEX_CONFIG_DIGEST}"
+        },
+        {
+          "name": "CAPTION_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_BATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "CAPTION_MAX_TOKENS",
+          "value": "512"
+        },
+        {
+          "name": "CAPTION_TEMPERATURE",
+          "value": "0"
+        },
+        {
+          "name": "EMBED_BATCH_SIZE",
+          "value": "8"
+        },
+        {
+          "name": "EXTRACTION_BATCH_SIZE",
+          "value": "2"
+        },
+        {
+          "name": "EXTRACTION_DPI",
+          "value": "200"
+        },
+        {
+          "name": "EXTRACT_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_CHARTS",
+          "value": "true"
+        },
+        {
+          "name": "EXTRACT_INFOGRAPHICS",
+          "value": "true"
+        },
+        {
+          "name": "STAGE_WORKER_ROLE",
+          "value": "fused"
+        },
+        {
+          "name": "STAGE_WORKER_STREAM",
+          "value": "rag.agentic.binaries.extraction.pending"
+        },
+        {
+          "name": "STAGE_WORKER_GROUP",
+          "value": "rag-agentic-fused-v1"
+        },
+        {
+          "name": "STAGE_WORKER_CONCURRENCY",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_READ_COUNT",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_MICROBATCH_SIZE",
+          "value": "1"
+        },
+        {
+          "name": "STAGE_WORKER_RECLAIM_IDLE_MS",
+          "value": "30000"
+        },
+        {
+          "name": "STAGE_WORKER_LEASE_SECONDS",
+          "value": "600"
+        },
+        {
+          "name": "STAGE_WORKER_HEARTBEAT_SECONDS",
+          "value": "30"
+        },
+        {
+          "name": "CAPTION_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "CAPTION_EXTRA_BODY",
+          "value": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+        },
+        {
+          "name": "INDEX_RESULT_STREAM",
+          "value": "rag.agentic.index"
+        },
+        {
+          "name": "PDF_EXTRACTION_REUSE",
+          "value": "true"
+        },
+        {
+          "name": "PRIVATE_ARTIFACT_ROOT",
+          "value": "/analysis-private/workspaces"
+        },
+        {
+          "name": "PRIVATE_WORKER_ROLE",
+          "value": "caption"
+        },
+        {
+          "name": "PRIVATE_QUERY_MCP_URL",
+          "value": "${PRIVATE_QUERY_MCP_URL}"
+        },
+        {
+          "name": "PRIVATE_SCOPE_KEY_FILE",
+          "value": "/private-scope/key"
+        },
+        {
+          "name": "PRIVATE_POSTGRES_DSN",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${PRIVATE_RUNTIME_SECRET}",
+              "key": "PRIVATE_POSTGRES_DSN"
+            }
+          }
+        },
+        {
+          "name": "PRIVATE_REDIS_URL",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${PRIVATE_RUNTIME_SECRET}",
+              "key": "PRIVATE_REDIS_URL"
+            }
+          }
+        },
+        {
+          "name": "PRIVATE_ES_USER",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${PRIVATE_RUNTIME_SECRET}",
+              "key": "PRIVATE_ES_READER_USER"
+            }
+          }
+        },
+        {
+          "name": "PRIVATE_ES_PASSWORD",
+          "valueFrom": {
+            "secretKeyRef": {
+              "name": "${PRIVATE_RUNTIME_SECRET}",
+              "key": "PRIVATE_ES_READER_PASSWORD"
+            }
+          }
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "1",
+          "memory": "2Gi"
+        },
+        "limits": {
+          "cpu": "4",
+          "memory": "8Gi"
+        }
+      },
+      "readinessProbe": {
+        "httpGet": {
+          "path": "/health/ready",
+          "port": 8090
+        },
+        "periodSeconds": 10
+      },
+      "volumeMounts": [
+        {
+          "name": "configuration",
+          "mountPath": "/app/config",
+          "readOnly": true
+        },
+        {
+          "name": "tmp",
+          "mountPath": "/tmp"
+        },
+        {
+          "name": "es-ca",
+          "mountPath": "/etc/rag-agentic-es",
+          "readOnly": true
+        },
+        {
+          "name": "private-artifacts",
+          "mountPath": "/analysis-private"
+        },
+        {
+          "name": "embedding-checkpoint",
+          "mountPath": "/model/embed",
+          "readOnly": true
+        }
+      ],
+      "securityContext": {
+        "runAsUser": 1000,
+        "runAsGroup": 1000,
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "configuration",
+      "persistentVolumeClaim": {
+        "claimName": "${CONFIG_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "tmp",
+      "emptyDir": {
+        "sizeLimit": "2Gi"
+      }
+    },
+    {
+      "name": "es-ca",
+      "secret": {
+        "secretName": "${ES_CA_SECRET}"
+      }
+    },
+    {
+      "name": "private-artifacts",
+      "persistentVolumeClaim": {
+        "claimName": "${PRIVATE_ARTIFACT_PVC}"
+      }
+    },
+    {
+      "name": "embedding-checkpoint",
+      "persistentVolumeClaim": {
+        "claimName": "${CHECKPOINT_PVC}",
+        "readOnly": true
+      }
+    }
+  ],
+  "terminationGracePeriodSeconds": 30
+}

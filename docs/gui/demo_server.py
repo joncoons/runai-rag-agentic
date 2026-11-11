@@ -23,6 +23,10 @@ RUNS={'atlas-website':[{'run_id':'website-check-illustration','state':'published
 JOB={'id':'atlas-demo-ingestion','collection_id':COLLECTION,'relevant':True,'status':'processing','stage':'Page text published; linked assets and optional captions continue independently','documents':[{'name':'https://docs.example.com/atlas/commissioning/','status':'completed','records':1},{'name':'Atlas-Operator-Guide.pdf','status':'completed','records':8}],'assets':[{'url':'https://documents.example.com/atlas/acceptance-form.pdf','kind':'binary','status':'completed'},{'url':'https://docs.example.com/atlas/images/control-panel.png','kind':'image','status':'processing'}],'captions':{'pending':1,'completed':1,'failed':0,'generated':1,'generating':0,'publishing':0},'images':[{'name':'Atlas control panel','status':'queued'},{'name':'Atlas inspection diagram','status':'completed'}],'operations':[{'target':'elasticsearch','state':'verified'},{'target':'milvus','state':'verified'}],'errors':[]}
 ANSWER={'answer':'The Atlas Operator Guide contains the commissioning checklist. The acceptance form is linked from the commissioning page, and the Service Notes describe recent revisions. [S1] [S2]\n\nUse the guide for the procedure and the latest notes to check which revision applies.','sources':[{'citation_id':'S1','title':'Atlas commissioning checklist','uri':'https://docs.example.com/atlas/commissioning/'},{'citation_id':'S2','title':'Atlas Service Notes','uri':'https://documents.example.com/atlas/service-notes.pdf','page':2}],'warnings':[]}
 
+
+RESEARCH={'id':'atlas-research','status':'completed','question':'Compare the Atlas commissioning requirements across the selected guides.','backend':'elasticsearch','collection_ids':[COLLECTION],'search_budget':6,'queries':['Find commissioning requirements.','Compare the guide with the service notes.'],'completed_queries':['Find commissioning requirements.','Compare the guide with the service notes.'],'sources':ANSWER['sources'],'warnings':['Illustrative local research report; no internet access.'],'report':'The Operator Guide defines the commissioning sequence; the Service Notes describe changes to the acceptance checks. [S1] [S2]\n\nConfirm the document revision before applying either checklist.','error_type':None,'attempts':1,'event_cursor':12,'expires_at':'2026-12-08T02:00:00Z'}
+DOCUMENT={'id':'atlas-private-guide','filename':'Atlas-Operator-Guide.pdf','status':'published','ready':True,'records':8,'expires_at':'2026-12-02T02:00:00Z','captions':{'generated':3,'published':3,'pending':0},'promotions':[], 'run':{**RESEARCH,'id':'atlas-private-answer','question':'Which checks are required before commissioning?','search_budget':1,'queries':['Which checks are required before commissioning?'],'completed_queries':['Which checks are required before commissioning?'],'sources':[{'citation_id':'S1','title':'Atlas-Operator-Guide.pdf','uri':'https://documents.example.com/atlas/operator-guide.pdf','page':3}],'report':'Complete the inspection checklist, confirm the equipment configuration and record the acceptance result before commissioning. [S1]'}}
+
 class Handler(BaseHTTPRequestHandler):
     authenticated=False
     def send(self,value,status=200):
@@ -32,6 +36,11 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/favicon.ico':self.send_response(204);self.end_headers();return
         if path=='/api/status':return self.send({'status':'demo_preview'})
         if path=='/api/collections':return self.send({'collections':COLLECTIONS})
+        if path=='/api/research/runs':return self.send({'runs':[RESEARCH]})
+        if path=='/api/research/runs/atlas-research':return self.send(RESEARCH)
+        if path=='/api/analysis/workspaces':return self.send({'workspaces':[DOCUMENT]})
+        if path=='/api/analysis/workspaces/atlas-private-guide':return self.send(DOCUMENT)
+        if path=='/api/session/collection-destinations':return self.send({'collections':[{'id':COLLECTION,'name':'Atlas Reference'}]})
         if path=='/api/location-roots':return self.send({'roots':[{'alias':'atlas-documents','uri':'location://atlas-documents/'}]})
         if path=='/api/session':return self.send({'authenticated':Handler.authenticated,'username':'demo-admin' if Handler.authenticated else None,'csrf_token':'fictional-preview-only'})
         if path=='/api/admin/locations':return self.send({'locations':[{'alias':'atlas-documents','path':'/source-roots/approved/atlas','enabled':True,'version':1}],'mounted_directories':['/source-roots/approved']})

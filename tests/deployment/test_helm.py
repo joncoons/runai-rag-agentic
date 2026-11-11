@@ -22,7 +22,7 @@ class HelmContracts(unittest.TestCase):
  def test_defaults_reject_unconfigured_installation(self):
   self.render(yaml.safe_load((ROOT/'charts/agentic-rag/values.yaml').read_text()),success=False)
  def test_application_roles_secrets_and_readiness(self):
-  docs=self.render(self.values());deploy=[d for d in docs if d['kind']=='Deployment'];self.assertEqual(len(deploy),15)
+  docs=self.render(self.values());deploy=[d for d in docs if d['kind']=='Deployment'];self.assertEqual(len(deploy),16)
   self.assertEqual(len([d for d in docs if d['kind']=='Job']),1)
   self.assertFalse(any(d['kind']=='Secret' for d in docs))
   for d in deploy:
@@ -32,6 +32,23 @@ class HelmContracts(unittest.TestCase):
    self.assertEqual(next(e['value'] for e in s['containers'][0]['env'] if e['name']=='NVIDIA_VISIBLE_DEVICES'),'void')
    self.assertNotIn('run.ai/control-plane-managed',d['metadata']['labels'])
    self.assertTrue(any(e['name']=='MILVUS_TOKEN' and 'secretKeyRef' in e['valueFrom'] for e in s['containers'][0]['env']))
+ def test_private_roles_are_isolated_and_operator_credentials_are_references(self):
+  v=self.values();v['privateAnalysis']['enabled']=True;v['secrets']['elasticsearchCA']='';docs=self.render(v)
+  deploy=[d for d in docs if d['kind']=='Deployment'];self.assertEqual(len(deploy),24)
+  api=next(d for d in deploy if d['metadata']['name']=='rag-api');self.assertEqual(api['spec']['template']['metadata']['labels']['rag-private-client'],'true')
+  for d in deploy:
+   if not d['metadata']['name'].startswith('rag-analysis-') or d['metadata']['name'].endswith('-redis'):continue
+   pod=d['spec']['template']['spec'];self.assertEqual(pod['schedulerName'],'runai-scheduler')
+   c=pod['containers'][0];env={e['name']:e for e in c['env']}
+   self.assertEqual(env['POSTGRES_DSN']['value'],'postgresql://unavailable/permanent-not-mounted')
+   self.assertEqual(env['PRIVATE_POSTGRES_DSN']['valueFrom']['secretKeyRef']['name'],'rag-private-runtime')
+   self.assertFalse(any(x['name'] in ('artifacts','approved-source','local-admin') for x in pod['volumes']))
+   self.assertFalse(any(x['name']=='es-ca' for x in pod['volumes']))
+   self.assertFalse(any(e['name']=='ES_CA' for e in c['env']))
+   self.assertNotIn('nvidia.com/gpu',c['resources'].get('limits',{}))
+   self.assertEqual(pod['initContainers'][0]['name'],'wait-for-private-schema')
+  self.assertFalse(any(d['kind']=='Secret' for d in docs))
+  self.assertTrue(any(d['kind']=='Job' and '-private-schema-' in d['metadata']['name'] for d in docs))
  def test_http_elasticsearch_never_loads_a_missing_ca(self):
   v=self.values();v['secrets']['elasticsearchCA']='';docs=self.render(v)
   for d in docs:

@@ -2,7 +2,7 @@
 
 Follow the fictional **Atlas Reference** collection from source selection to search. These screenshots use the application's actual HTML, CSS and JavaScript with synthetic API responses. Names, URLs, dates, counts, statuses and answers are illustrative—not production data or ingestion/performance measurements. Click any screenshot for the full-size image.
 
-[Installation runbook](../../RUNAI_RUNBOOK.md) · [Processing diagrams](../../diagrams/README.md)
+[Project documentation](../../README.md) · [Published processing diagrams](../../diagrams/README.md)
 
 - [Open or create a collection](#open-or-create-a-collection)
 - [Collection overview](#collection-overview)
@@ -177,31 +177,25 @@ Text remains searchable while independent assets/captions continue. A generated 
 
 ## Search and research modes
 
-Open **Search**, or **Search collection** to preselect a collection.
+**Search**, **Deep research** and **Document analysis** are separate choices in the left navigation. Search provides a concise streamed answer. Select collections and a search index, or clear all collections to use the model without retrieval.
 
-[![Scoped Milvus search with a fictional answer and linked citations](images/13-search-results.png)](images/13-search-results.png)
+[![Search with linked collection sources](images/13-search-results.png)](images/13-search-results.png)
 
-| Entry | How to use it |
-|---|---|
-| Your question | Enter the question to answer. |
-| Collections | Select one or more collections. Default retrieval is global top 10 across the chosen scope, reranked to the best 5. |
-| Search index | Choose Elasticsearch or Milvus. All selected collections must be available in Milvus to use that backend. This does not change ingestion destinations. |
-| Search | Run ordinary retrieval and stream the answer. |
-| Sources | Follow the linked citations; PDFs may include page numbers. These are evidence links rather than pasted excerpts. |
+**Deep research** is explicitly selected by the user. Choose collections, a search index, a question and the maximum number of local evidence searches. The job retains its plan and completed evidence searches if you navigate away. Stop and resume controls are available; a completed report can be downloaded. Internet research is not enabled by this choice.
 
-### Deep research is a user choice
+[![Explicit local deep research request](images/14-deep-research-choice.png)](images/14-deep-research-choice.png)
 
-Select **Deep research**, then **Start deep research**. Changing the radio button does not run it by itself.
+[![Grounded research report and source links](images/20-research-report.png)](images/20-research-report.png)
 
-[![Explicit deep-research selection before starting a request](images/14-deep-research-choice.png)](images/14-deep-research-choice.png)
+**Document analysis** accepts one supported document without adding it to an ordinary collection. Supply an initial question or use the suggested summary question. Optional PDF image captions run independently of text publication. Follow-up questions use evidence retrieved from this document; the answer is not an exhaustive whole-document audit.
 
-The current mode plans additional bounded searches within selected local collections. It does not automatically switch a prompt to unrestricted internet research.
+[![Private document upload and optional captions](images/21-document-analysis-upload.png)](images/21-document-analysis-upload.png)
 
-### No collection selected
+The workspace is private to the browser session and expires after 24 hours by default. **Open document** follows an owned source link; **Delete now** immediately removes access and schedules physical cleanup. **Add to collection** explicitly copies the original into a destination where the signed-in user has write permission. An accepted durable copy survives expiry of its private workspace. Progress reports distinguish copy submission from verified publication.
 
-Choose **Use no collections** for model-only answers, without local retrieval or collection citations.
+[![Private grounded answer and explicit collection promotion](images/22-private-document-answer.png)](images/22-private-document-answer.png)
 
-[![Model-only answer without selected collections or evidence citations](images/15-model-only-search.png)](images/15-model-only-search.png)
+[![Model-only search with no collections selected](images/15-model-only-search.png)](images/15-model-only-search.png)
 
 ## Duplicate or delete a collection
 
@@ -246,7 +240,7 @@ python3 docs/gui/demo_server.py --port 8099
 
 Open `http://127.0.0.1:8099`. It serves the real frontend with synthetic API responses and binds only to loopback. It does not crawl, ingest, call models or persist collection/source changes. Search and admin sign-in are simulated; production authentication is not exercised.
 
-[`demo_server.py`](demo_server.py) defines the fixtures. [`capture.js`](capture.js) records the illustrated states with Playwright from the repository root. [`screenshots.json`](screenshots.json) records screenshot hashes. The publication audit admits only these approved fictional PNGs and continues to reject downloaded corpora and other binary files.
+[`demo_server.py`](demo_server.py) defines the fixtures. [`capture.js`](capture.js) records the illustrated states with Playwright from the repository root. [`screenshots.json`](screenshots.json) records screenshot hashes. The [clean-publication audit](../../tools/audit_publication.py) admits only these approved fictional PNGs and continues to reject downloaded corpora and other binary files.
 
 ### Refresh screenshots
 
@@ -263,4 +257,4 @@ PY
 playwright-cli -s=gui-guide close
 ```
 
-The capture script verifies the fictional preview before recording any screen. Review the images, then run `python3 docs/gui/update_manifest.py`, stage the documentation and run `python3 tools/audit_publication.py`. Other binary files and images with text metadata remain excluded.
+The capture script verifies the fictional preview before recording any screen. Review the images, then run `python3 docs/gui/update_manifest.py`, stage the documentation, and run `python3 tools/audit_publication.py` in the clean publication repository when preparing a public update. Other binary files and images with text metadata remain excluded.

@@ -1,0 +1,6 @@
+privateAnalysis:
+  enabled: true
+  runtimeSecret: REPLACE_PRIVATE_RUNTIME_SECRET
+  scopeSecret: REPLACE_PRIVATE_SCOPE_SECRET
+  redisConfigSecret: REPLACE_PRIVATE_REDIS_CONFIG_SECRET
+  artifactClaim: REPLACE_PRIVATE_ARTIFACT_PVC
