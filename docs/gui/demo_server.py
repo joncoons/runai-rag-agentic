@@ -13,8 +13,8 @@ ROOT=Path(__file__).resolve().parents[2]
 COLLECTION='atlas-reference'
 SCHEDULE={'enabled':True,'timezone':'Etc/UTC','start':'02:00','end':'06:00'}
 COLLECTIONS=[
- {'id':COLLECTION,'name':'Atlas Reference','status':'ready','elasticsearch_status':'ready','also_write_milvus':True,'documents':36,'published_documents':36,'generation':3,'caption_pending':2,'caption_failed':0,'processing':{'captions_pending':1,'captions_awaiting_publication':1,'captions_generated':11,'publication_pending':True,'publication_pending_operations':1},'image_origins':{'webpage':{'unique_images':6,'associations':8,'pending':2,'completed':6,'queued':1,'generating':0,'generated':7,'publishing':1},'pdf':{'unique_images':3,'associations':4,'pending':0,'completed':4,'queued':0,'generating':0,'generated':4,'publishing':0}}},
- {'id':'service-bulletins','name':'Service Bulletins','status':'ready','elasticsearch_status':'ready','also_write_milvus':False,'documents':12,'published_documents':12,'generation':1,'caption_pending':0,'caption_failed':0}]
+ {'id':COLLECTION,'name':'Atlas Reference','status':'ready','elasticsearch_status':'ready','also_write_milvus':True,'milvus_status':'ready','documents':36,'published_documents':36,'generation':3,'caption_pending':2,'caption_failed':0,'processing':{'captions_pending':1,'captions_awaiting_publication':1,'captions_generated':11,'publication_pending':True,'publication_pending_operations':1},'image_origins':{'webpage':{'unique_images':6,'associations':8,'pending':2,'completed':6,'queued':1,'generating':0,'generated':7,'publishing':1},'pdf':{'unique_images':3,'associations':4,'pending':0,'completed':4,'queued':0,'generating':0,'generated':4,'publishing':0}}},
+ {'id':'service-bulletins','name':'Service Bulletins','status':'ready','elasticsearch_status':'ready','also_write_milvus':False,'milvus_status':'not_enabled','documents':12,'published_documents':12,'generation':1,'caption_pending':0,'caption_failed':0}]
 SOURCES=[
  {'source_id':'atlas-website','kind':'website','name':'Atlas documentation website','version':2,'seed_urls':['https://docs.example.com/atlas/'],'policy':{'allowed_hosts':['docs.example.com','documents.example.com'],'page_prefixes':['https://docs.example.com/atlas/'],'max_depth':None,'max_pages':None,'include_images':True,'prefer_https':True,'included_extensions':['.pdf','.docx','.pptx','.csv','.xls','.xlsx','.md','.txt'],'ignored_extensions':['.gif','.avif']},'schedule':SCHEDULE,'paused':False,'captions_enabled':True,'next_fire':'2026-12-02T02:00:00Z'},
  {'source_id':'atlas-directory','kind':'location','name':'Atlas service guides','version':1,'location':{'uri':'location://atlas-documents/service-guides/','recursive':True,'max_depth':4,'max_files':128},'schedule':SCHEDULE,'paused':False,'captions_enabled':True,'next_fire':'2026-12-02T02:00:00Z'},
@@ -36,7 +36,7 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/favicon.ico':self.send_response(204);self.end_headers();return
         if path=='/api/status':return self.send({'status':'demo_preview'})
         if path=='/api/collections':return self.send({'collections':COLLECTIONS})
-        if path=='/api/research/runs':return self.send({'runs':[RESEARCH]})
+        if path=='/api/research/runs':return self.send({'runs':[RESEARCH],'capabilities':{'web_search':True}})
         if path=='/api/research/runs/atlas-research':return self.send(RESEARCH)
         if path=='/api/analysis/workspaces':return self.send({'workspaces':[DOCUMENT]})
         if path=='/api/analysis/workspaces/atlas-private-guide':return self.send(DOCUMENT)

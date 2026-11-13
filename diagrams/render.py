@@ -13,7 +13,7 @@ import tempfile
 
 ROOT=Path(__file__).resolve().parent
 VERSION='12.2.0'
-NAMES=[('document-analysis-and-research','Document analysis and durable local research'),('simple-search-flow','Search and streaming'),('independent-web-ingestion','Independent webpage and asset processing'),('asset-lifecycle','Asset lifecycle'),('collection-publication','Collection publication'),('provenance-flow','Provenance'),('source-rechecks','Source rechecks'),('visual-caption-location-flow','Images, captions and approved locations')]
+NAMES=[('document-analysis-and-research','Document analysis and durable research'),('simple-search-flow','Search and streaming'),('independent-web-ingestion','Independent webpage and asset processing'),('asset-lifecycle','Asset lifecycle'),('collection-publication','Collection publication'),('provenance-flow','Provenance'),('source-rechecks','Source rechecks'),('visual-caption-location-flow','Images, captions and approved locations')]
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

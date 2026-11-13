@@ -35,3 +35,5 @@ Document-level graph/abstract experimentation is outside this release. Temporary
 Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). No license file is supplied for original application code.
 
 The left navigation separates **Search**, **Deep research** and **Document analysis**. Research is an explicit local collection job with persisted progress and a downloadable report. Document analysis provides an owned, expiring workspace, optional async PDF captions and an authorized Add to collection action. See the [GUI walkthrough](docs/gui/README.md#search-and-research-modes) and [private analysis setup](RUNAI_RUNBOOK.md#search-research-and-private-document-analysis). Private processing requires separately provisioned identities, storage and queues; it is disabled in Helm values until configured.
+
+Deep research can optionally include Tavily web evidence through a default-off per-job control. See [web-search setup](RUNAI_RUNBOOK.md#optional-tavily-web-research). No provider credential is exposed to the GUI or private document analysis.

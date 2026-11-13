@@ -19,6 +19,17 @@ class HelmContracts(unittest.TestCase):
   if not success:self.assertNotEqual(out.returncode,0);return out.stderr
   self.assertEqual(out.returncode,0,out.stderr)
   return [d for d in yaml.safe_load_all(out.stdout) if d]
+ def test_web_research_is_opt_in_and_only_ordinary_research_has_provider_secret(self):
+  v=self.values();v['privateAnalysis']['enabled']=True;v['research']={'webSearch':{'enabled':True,'secretName':'web-provider','secretKey':'TAVILY_API_KEY'}}
+  docs=self.render(v);roles={d['metadata']['name']:d for d in docs if d['kind']=='Deployment'}
+  for name,d in roles.items():
+   env={e['name']:e for e in d['spec']['template']['spec']['containers'][0].get('env',[])}
+   if name in ('rag-api','rag-research'):self.assertEqual(env['RESEARCH_WEB_SEARCH_ENABLED']['value'],'true')
+   else:self.assertNotIn('TAVILY_API_KEY',env)
+   if name=='rag-research':self.assertEqual(env['TAVILY_API_KEY']['valueFrom']['secretKeyRef'],{'name':'web-provider','key':'TAVILY_API_KEY'})
+   else:self.assertNotIn('TAVILY_API_KEY',env)
+  v['research']['webSearch']['secretName']='';self.render(v,success=False)
+  self.assertFalse(self.values()['research']['webSearch']['enabled'])
  def test_defaults_reject_unconfigured_installation(self):
   self.render(yaml.safe_load((ROOT/'charts/agentic-rag/values.yaml').read_text()),success=False)
  def test_application_roles_secrets_and_readiness(self):

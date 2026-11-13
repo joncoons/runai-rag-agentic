@@ -2,9 +2,9 @@
 
 Click a diagram to open its full-size SVG. Labels use native SVG text; editable Mermaid sources are linked below each preview.
 
-## Document analysis and durable local research
+## Document analysis and durable research
 
-[![Document analysis and durable local research](document-analysis-and-research.svg)](document-analysis-and-research.svg)
+[![Document analysis and durable research](document-analysis-and-research.svg)](document-analysis-and-research.svg)
 
 [Mermaid source](document-analysis-and-research.mmd) · [Full-size SVG](document-analysis-and-research.svg)
 

@@ -61,3 +61,23 @@ class ResearchJobsTests(unittest.IsolatedAsyncioTestCase):
   failed=await self.repo.get(self.owner,run['run_id'])
   self.assertEqual(failed['status'],'failed');self.assertEqual(failed['error_type'],'WorkerInterrupted')
   self.assertGreater(failed['event_cursor'],0)
+
+ async def test_web_retry_recovers_provider_checkpoint_without_repeating_local_retrieval(self):
+  from unittest.mock import AsyncMock,patch
+  from types import SimpleNamespace
+  from tests.application.test_research_engine import Query
+  from application.research_engine import ResearchEngine,run_owned
+  from application.web_research import WebSearchUnavailable
+  request={'question':'Public question','collection_ids':['one'],'backend':'elasticsearch','search_budget':1,'include_web':True}
+  run=await self.repo.create(self.owner,'web-recovery',request);q=Query();q.called=[]
+  provider=SimpleNamespace(search=AsyncMock(side_effect=WebSearchUnavailable('Temporary provider failure')))
+  with patch.dict('os.environ',{'RESEARCH_WEB_SEARCH_ENABLED':'true'}):
+   await run_owned(self.repo,await self.repo.claim(run['run_id']),ResearchEngine(self.repo,q,web=provider))
+   failed=await self.repo.get(self.owner,run['run_id']);self.assertEqual(failed['status'],'queued')
+   self.assertEqual(failed['checkpoint']['completed_steps'],[{'query':'Public question','provider':'local'}])
+   await self.pool.execute('UPDATE application.research_runs SET next_attempt_at=clock_timestamp()')
+   provider.search.side_effect=None;provider.search.return_value={'sources':[],'warnings':['No web result'],'proof':{'provider':'tavily','response_sha256':'a'*64}}
+   await run_owned(self.repo,await self.repo.claim(run['run_id']),ResearchEngine(self.repo,q,web=provider))
+  done=await self.repo.get(self.owner,run['run_id']);self.assertEqual(done['status'],'completed')
+  self.assertEqual(q.called,['Public question']);self.assertEqual(provider.search.await_count,2)
+  self.assertEqual({p['provider'] for p in done['checkpoint']['evidence_proofs']},{'local','tavily'})

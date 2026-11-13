@@ -1,12 +1,16 @@
 flowchart TD
     U[User selects a workflow in the left navigation]
     U --> S[Search: selected collections or model only]
-    U --> R[Deep research: explicit collections, index and budget]
+    U --> R[Deep research: scope, budget and optional web search]
     U --> D[Document analysis: private expiring upload]
     R --> J[PostgreSQL job, evidence checkpoints and streamed report]
     J <-->|delivery and recovery| Q[Redis notifications and fenced worker leases]
-    J --> M[Scoped read-only MCP and shared qualified models]
+    J --> M[Scoped read-only collection MCP]
     M --> J
+    J -->|only with per-job user opt-in| WEB[Tavily: question and planned search terms only]
+    WEB --> PROOF[Retained provider excerpts, URLs, response bytes and hashes]
+    PROOF --> J
+    J --> LLM[Local grounded report with verified citations and source labels]
     D --> P[Private PostgreSQL, Redis and artifact storage]
     P --> X[Qualified native text extraction]
     X --> W[Independent private vector writer]

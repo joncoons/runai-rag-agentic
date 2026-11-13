@@ -26,6 +26,13 @@
 {{- end -}}
 {{- $env = append $env (dict "name" "PRIVATE_ARTIFACT_ROOT" "value" "/analysis-private/workspaces") -}}
 {{- end -}}
+{{- if or (eq $role "api") (eq $role "research") -}}
+{{- $env = append $env (dict "name" "RESEARCH_WEB_SEARCH_ENABLED" "value" (ternary "true" "false" $root.Values.research.webSearch.enabled)) -}}
+{{- end -}}
+{{- if and (eq $role "research") $root.Values.research.webSearch.enabled -}}
+{{- $secret := required "research.webSearch.secretName is required when web search is enabled" $root.Values.research.webSearch.secretName -}}
+{{- $env = append $env (dict "name" "TAVILY_API_KEY" "valueFrom" (dict "secretKeyRef" (dict "name" $secret "key" $root.Values.research.webSearch.secretKey))) -}}
+{{- end -}}
 {{- $env = concat $env (list (dict "name" "NVIDIA_VISIBLE_DEVICES" "value" "void") (dict "name" "CUDA_VISIBLE_DEVICES" "value" "")) -}}
 {{- $_ := set $container "env" $env -}}
 {{- $mounts := list -}}
@@ -88,7 +95,7 @@ spec:
         rag-private-client: "true"
         {{- end }}
       annotations:
-        checksum/config: {{ printf "%s%s" (include "rag.bindings" $root) (toJson $root.Values.configuration) | sha256sum }}
+        checksum/config: {{ printf "%s%s%s" (include "rag.bindings" $root) (toJson $root.Values.configuration) (toJson $root.Values.research) | sha256sum }}
     spec:
       {{- toYaml $spec | nindent 6 }}
 {{- end }}

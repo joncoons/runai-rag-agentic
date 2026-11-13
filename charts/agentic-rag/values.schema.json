@@ -50,6 +50,26 @@
           "minimum": 1
         }
       }
+    },
+    "research": {
+      "type": "object",
+      "properties": {
+        "webSearch": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "secretName": {
+              "type": "string"
+            },
+            "secretKey": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
     }
   }
 }

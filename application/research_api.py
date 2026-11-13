@@ -3,7 +3,7 @@ import asyncio,json
 from uuid import UUID
 from fastapi import HTTPException,Request
 from fastapi.responses import Response,StreamingResponse
-from pydantic import BaseModel,ConfigDict,Field
+from pydantic import BaseModel,ConfigDict,Field,StrictBool,model_validator
 from typing import Literal
 from .local_auth import SessionStore,COOKIE,csrf
 from .research_jobs import ResearchJobs
@@ -21,7 +21,7 @@ def public_run(row):
  state=row['checkpoint'];sources=[{k:v for k,v in s.items() if k!='text'} for s in state.get('sources',[])]
  return {'id':str(row['run_id']),'status':row['status'],'question':row['request']['question'],
   'backend':row['request']['backend'],'collection_ids':row['request']['collection_ids'],
-  'search_budget':row['request']['search_budget'],'queries':state.get('queries',[]),
+  'include_web':row['request'].get('include_web',False),'search_budget':row['request']['search_budget'],'queries':state.get('queries',[]),
   'completed_queries':state.get('completed_queries',[]),'sources':sources,
   'warnings':state.get('warnings',[]),'report':row['report'],'error_type':row['error_type'],
   'attempts':row['attempts'],'event_cursor':row.get('event_cursor',0),'expires_at':row['expires_at'].isoformat()}
@@ -29,10 +29,15 @@ def public_run(row):
 class ResearchRequest(BaseModel):
  model_config=ConfigDict(extra='forbid')
  question:str=Field(min_length=1,max_length=131072,strict=True)
- collection_ids:list[str]=Field(min_length=1,max_length=12)
+ collection_ids:list[str]=Field(default_factory=list,max_length=12)
+ include_web:StrictBool=False
  backend:Literal['elasticsearch','milvus']='elasticsearch'
  search_budget:int=Field(default=6,ge=1,strict=True)
  request_key:str=Field(min_length=1,max_length=128,strict=True)
+ @model_validator(mode='after')
+ def evidence_scope(self):
+  if not self.collection_ids and not self.include_web:raise ValueError('Select collections or explicitly enable web search')
+  return self
 
 def install_research_routes(app,service_for):
  from .api import _context
@@ -40,8 +45,10 @@ def install_research_routes(app,service_for):
  @app.post('/api/research/runs',status_code=202)
  async def create(body:ResearchRequest,request:Request):
   session=await owner_session(request,write=True)
+  from .web_research import enabled
+  if body.include_web and not enabled():raise HTTPException(503,'Web search is not enabled for this installation')
   query=service_for(request);query._validate(body.question,body.collection_ids,body.backend,'deep_research')
-  if query.catalog is None:
+  if body.collection_ids and query.catalog is None:
    # Validate scope once at job admission. MCP-backed search intentionally has
    # no API-side background catalog and remains the evidence authority.
    from .query_catalog import QueryCatalog
@@ -49,13 +56,16 @@ def install_research_routes(app,service_for):
    ctx=_context(request);catalog=QueryCatalog(ctx.pool,allowed_collection_ids=body.collection_ids)
    await catalog.refresh();validator=RAGQuery(ctx.settings,ctx.pool,ctx.http,catalog=catalog)
   else:validator=query
-  await validator._resolve(body.collection_ids,body.backend)
-  row=await repo(request).create(session['owner_id'],body.request_key,body.model_dump(exclude={'request_key'}))
+  if body.collection_ids:await validator._resolve(body.collection_ids,body.backend)
+  payload=body.model_dump(exclude={'request_key'})
+  if not body.include_web:payload.pop('include_web') # preserve existing local request/idempotency hashes
+  row=await repo(request).create(session['owner_id'],body.request_key,payload)
   return public_run(row)
  @app.get('/api/research/runs')
  async def listing(request:Request):
   session=await owner_session(request)
-  return {'runs':[public_run(r) for r in await repo(request).listing(session['owner_id'])]}
+  from .web_research import enabled
+  return {'runs':[public_run(r) for r in await repo(request).listing(session['owner_id'])],'capabilities':{'web_search':enabled()}}
  @app.get('/api/research/runs/{run_id}')
  async def get(run_id:UUID,request:Request):
   session=await owner_session(request)
@@ -71,7 +81,7 @@ def install_research_routes(app,service_for):
   if not row:raise HTTPException(404,'Research is unavailable')
   if row['status']!='completed':raise HTTPException(409,'The report is not complete')
   sources=row['checkpoint'].get('sources',[])
-  text=row['report']+'\n\nSources\n'+''.join('\n- ['+s['citation_id']+'] '+str(s.get('title') or s.get('uri') or s['record_id'])+(' — '+s['uri'] if s.get('uri') else '') for s in sources)
+  text=row['report']+'\n\nEvidence scope: '+('Tavily web search'+(' and selected collections' if row['request']['collection_ids'] else '') if row['request'].get('include_web',False) else 'selected collections only')+'\n\nSources\n'+''.join('\n- ['+s['citation_id']+'] '+str(s.get('title') or s.get('uri') or s['record_id'])+(' [external web excerpt]' if s.get('evidence_origin')=='web_search' else ' [collection]')+(' — '+s['uri'] if s.get('uri') else '') for s in sources)
   return Response(text,media_type='text/markdown',headers={'Cache-Control':'no-store','Content-Disposition':'attachment; filename="research-report.md"'})
  @app.get('/api/research/runs/{run_id}/events')
  async def events(run_id:UUID,request:Request,after:int=0):

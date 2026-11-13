@@ -46,3 +46,23 @@ test('expired document refresh clears cached private detail and report',async()=
  assert.equal(f.run('workflowState.document'),null);assert.equal(f.run('workflowState.documentRun'),null);
  assert.doesNotMatch(f.nodes.get('view').innerHTML,/Expired private/);
 });
+
+test('web research is an unchecked per-job option and permits web-only scope only after opt-in',()=>{
+ const f=fixture('research');f.run('workflowState.webAvailable=true;state.loaded=true;state.selected.clear();');
+ let html=f.run('workflowView(route())');assert.match(html,/Include web search/);assert.doesNotMatch(html,/<input[^>]*id="research-web"[^>]*checked/);
+ assert.match(html,/<button[^>]*disabled[^>]*>Start research/);
+ f.run('workflowState.includeWeb=true;');html=f.run('workflowView(route())');assert.doesNotMatch(html,/<button[^>]*disabled[^>]*>Start research/);
+});
+test('web choice is included in submitted job and resets after successful admission',async()=>{
+ const f=fixture('research');
+ const node=(value='')=>({value,checked:false,dataset:{},disabled:false,events:{},querySelectorAll:()=>[],setAttribute(){},getAttribute(){return null},addEventListener(name,fn){this.events[name]=fn;}});
+ const form=node(),question=node('Public research question'),budget=node('1'),web=node();web.checked=true;
+ for(const [id,value] of [['research-form',form],['research-question',question],['research-budget',budget],['research-web',web]])f.nodes.set(id,value);
+ let submitted;f.context.submit=async(url,body)=>{submitted=body;return {id:'job',include_web:body.include_web};};
+ f.run('workflowState.includeWeb=true;workflowState.webAvailable=true;workflowWrite=submit;workflowKey=()=>"fixture";bindWorkflows();');
+ await form.events.submit({preventDefault(){},currentTarget:form});assert.equal(submitted.include_web,true);assert.equal(submitted.collection_ids.length,0);assert.equal(f.run('workflowState.includeWeb'),false);
+});
+test('external sources are explicitly labeled in research reports',()=>{
+ const f=fixture('research');f.context.run={id:'run',status:'completed',include_web:true,collection_ids:[],queries:['Q'],completed_queries:['Q'],sources:[{citation_id:'S1',title:'Public guide',uri:'https://public.example/guide',evidence_origin:'web_search'}],warnings:[],report:'Grounded report',search_budget:1};
+ assert.match(f.run('workflowReport(run)'),/External web/);
+});

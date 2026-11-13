@@ -139,6 +139,12 @@
       "sha256": "b562047925da9cac28301502c5a41b6f364fcea8c5d32198e0be221ed2f2f32b",
       "width": 1440,
       "height": 1040
+    },
+    {
+      "path": "docs/gui/images/24-web-research-opt-in.png",
+      "sha256": "84eef8f84715ef649aa6580d424ab4fd937c40eae667193bb5e8dc35508abb74",
+      "width": 1440,
+      "height": 1040
     }
   ]
 }

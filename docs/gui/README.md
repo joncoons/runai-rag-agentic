@@ -181,7 +181,7 @@ Text remains searchable while independent assets/captions continue. A generated 
 
 [![Search with linked collection sources](images/13-search-results.png)](images/13-search-results.png)
 
-**Deep research** is explicitly selected by the user. Choose collections, a search index, a question and the maximum number of local evidence searches. The job retains its plan and completed evidence searches if you navigate away. Stop and resume controls are available; a completed report can be downloaded. Internet research is not enabled by this choice.
+**Deep research** is explicitly selected by the user. Choose collections, a search index, a question and the maximum number of local evidence searches. The job retains its plan and completed evidence searches if you navigate away. Stop and resume controls are available; a completed report can be downloaded. Selecting Deep research alone does not enable internet access; use the separate, default-off Include web search option when configured.
 
 [![Explicit local deep research request](images/14-deep-research-choice.png)](images/14-deep-research-choice.png)
 
@@ -262,3 +262,9 @@ The capture script verifies the fictional preview before recording any screen. R
 ### Reading current processing state
 
 A ready collection remains searchable during background work. Source counts refer to webpages and documents; native image-processing counts are separate. Caption generation, admission and store publication are separate stages: a generated caption is not yet necessarily published. Images with real processing errors remain visible even when captioning was not enabled. Milvus shows empty, pending or ready according to its current projection, rather than only its configuration. Search and Deep research refresh collection choices without discarding a drafted question. A refresh failure explicitly labels retained data as last known state.
+
+### Include web search in Deep research
+
+The **Include web search** checkbox is off by default. When the operator has configured Tavily, check it to combine public web evidence with the selected collections, or select no collections for web-only research. The choice resets after submission. Your question and planned search terms are sent to Tavily; collection passages and private documents stay local. Search budget counts planned queries, each of which can use both selected providers. Reports label external web excerpts and link to their original URLs. Document analysis has no web-search option. Downloading and analyzing full linked PDFs is a separate upcoming tool capability.
+
+[![Optional web evidence with fictional Atlas collections](images/24-web-research-opt-in.png)](images/24-web-research-opt-in.png)

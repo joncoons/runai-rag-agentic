@@ -231,7 +231,7 @@ Admission and writer memory must accommodate the retained publication artifacts.
 
 ## Search, research and private document analysis
 
-The left navigation separates **Search**, **Deep research** and **Document analysis**. Ordinary search keeps the global top-10 retrieval / top-5 reranking behavior. Deep research starts an owned durable local job; the user chooses collections, the search index and its search budget. It does not grant internet access. A CPU research worker retains checkpoints and report deltas in PostgreSQL; Redis delivers notifications and database leases recover missed notifications or stopped processes.
+The left navigation separates **Search**, **Deep research** and **Document analysis**. Ordinary search keeps the global top-10 retrieval / top-5 reranking behavior. Deep research starts an owned durable local job; the user chooses collections, the search index and its search budget. It does not grant internet access unless the separately configured per-job web-search option is selected. A CPU research worker retains checkpoints and report deltas in PostgreSQL; Redis delivers notifications and database leases recover missed notifications or stopped processes.
 
 Document analysis is opt-in infrastructure. It uses the existing qualified ingestion and NIM endpoints, with separate CPU extraction, caption, admission, writer, research, cleanup and scoped-MCP workers. Captions remain optional and asynchronous. No additional GPU allocation or device-plugin time-slicing configuration is introduced.
 
@@ -275,3 +275,21 @@ The new workflow chart source is version 0.2.0. Its private option has been rend
 Before enabling the private navigation in a new installation, verify owned document upload/question/download; a second session must receive 404. Stop the separate caption worker during an image-bearing PDF test: text and grounded answers must become ready independently, then captions publish after the worker resumes. Delete the workspace and verify access is fenced immediately and its files, rows and private indexes are subsequently purged. Private Elasticsearch roles remain restricted to `rag_analysis_*`; cleanup uses scoped index metadata and does not require cluster-monitor privileges.
 
 Run a bounded collection research job, reconnect its event stream and download the completed report. Submit a synthetic ordinary upload to a destination enrolled in both Elasticsearch and Milvus: PostgreSQL must record both matching receipts before publication. Promotion requires an explicit destination write grant; do not grant wildcard access for acceptance. Confirm an active ordinary-file extraction consumer before enabling uploads/promotions; avoid adding a second consumer if the foreground deployment already serves that stream.
+
+### Optional Tavily web research
+
+Deep research stays collection-only by default. To offer the per-job **Include web search** choice, create a namespace-local Secret containing `TAVILY_API_KEY` and set these values. Enter the credential with your secret-management tooling; keep it out of values files and shell history.
+
+```yaml
+research:
+  webSearch:
+    enabled: true
+    secretName: REPLACE_WEB_SEARCH_SECRET
+    secretKey: TAVILY_API_KEY
+```
+
+Only the ordinary research worker receives the provider credential. The API receives an enablement flag; private-analysis workers receive neither. The installation needs HTTPS egress to `api.tavily.com`. Disabling this flag prevents new opted-in requests; stop active research before removing egress or credentials if those jobs must not continue. Private document analysis never enables web search.
+
+The unchecked option resets after each successful job submission. It supports web-only jobs with no collection selected, or selected collections plus web. Only the question and question-only planned search terms go to Tavily; retrieved collection passages and private files are not sent. The existing search budget bounds planned queries; each query can search the selected collections and Tavily (five web results per query). Explicit basic search depth and no provider-generated answer keep final synthesis in the local model.
+
+PostgreSQL checkpoints retain the opt-in, provider steps and excerpt evidence with URL/title, content/response hashes, the original successful provider-response bytes (checkpoint-only, not client/model input), provider request identity and capture time. Resuming skips committed provider steps. A crash after an external response but before checkpoint commit may repeat that provider request; provider billing is not exactly-once. Existing finite job retries apply. Provider failures remain visible, without silently substituting local/model-only research. Reports mark external excerpts and retain source links; these are not complete webpage captures and are never automatically written into collections. Following links to analyze full PDFs in job-owned ephemeral collections is a separately planned tool extension.

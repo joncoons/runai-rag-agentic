@@ -229,3 +229,9 @@ privateAnalysis:
   redisConfigSecret: rag-private-redis
   artifactClaim: rag-private-artifacts
   redisImage: redis:7-alpine
+
+research:
+  webSearch:
+    enabled: false
+    secretName: ""
+    secretKey: TAVILY_API_KEY
