@@ -84,6 +84,70 @@ class CurrentHealthTests(unittest.IsolatedAsyncioTestCase):
   client=await self.client();self.assertEqual((await client.get('/api/collections')).json()['collections'][0]['caption_failed'],0)
   data=(await client.get('/api/jobs/'+str(r['job']))).json();self.assertTrue(data['relevant']);self.assertEqual(data['captions']['images'],[]);self.assertEqual(data['captions']['failed'],0)
 
+ async def test_document_pending_excludes_image_enrichment_and_keeps_its_own_counter(self):
+  parent=await self.source('page.html',status='published',current=True,web_role='page')
+  child=await self.source('image.png',web_role='image');await self.reference(child,parent)
+  await self.source('pending.pdf',status='queued')
+  client=await self.client();row=(await client.get('/api/collections')).json()['collections'][0]
+  self.assertEqual(row['processing']['sources_pending'],1)
+  self.assertEqual(row['processing']['image_sources_pending'],1)
+
+ async def test_failed_image_extraction_remains_visible_without_caption_tasks(self):
+  parent=await self.source('page.html',status='published',current=True,web_role='page')
+  child=await self.source('image.png',web_role='image',status='failed');await self.reference(child,parent,caption=False)
+  client=await self.client();row=(await client.get('/api/collections')).json()['collections'][0]
+  self.assertEqual(row['processing']['sources_failed'],0)
+  self.assertEqual(row['processing']['image_sources_failed'],1)
+  self.assertEqual(row['caption_failed'],0)
+
+ async def test_generated_caption_without_admission_is_not_a_writer_publication(self):
+  r=await self.source('doc.pdf',status='published',current=True);key=await self.caption(r,terminal=None)
+  await self.pool.execute("UPDATE public.stage_units SET status='committed' WHERE idempotency_key=$1",key)
+  client=await self.client();row=(await client.get('/api/collections')).json()['collections'][0]
+  self.assertEqual(row['processing']['captions_awaiting_admission'],1)
+  self.assertEqual(row['processing']['captions_awaiting_publication'],0)
+  job=(await client.get('/api/jobs/'+str(r['job']))).json()
+  self.assertEqual(job['captions']['admitting'],1);self.assertEqual(job['captions']['publishing'],0)
+  await self.pool.execute("INSERT INTO application.caption_publications(caption_stage_key,status,operation_id) VALUES($1,'pending',$2)",key,uuid4())
+  row=(await client.get('/api/collections')).json()['collections'][0]
+  self.assertEqual(row['processing']['captions_awaiting_admission'],0)
+  self.assertEqual(row['processing']['captions_awaiting_publication'],1)
+
+ async def test_caption_projection_uses_operation_result_before_late_application_ack(self):
+  r=await self.source('doc.pdf',status='published',current=True);key=await self.caption(r,terminal=None);op=uuid4()
+  await self.pool.execute("UPDATE public.stage_units SET status='committed' WHERE idempotency_key=$1",key)
+  await self.pool.execute("INSERT INTO application.caption_publications(caption_stage_key,status) VALUES($1,'pending')",key)
+  client=await self.client();url='/api/jobs/'+str(r['job'])
+  self.assertEqual((await client.get(url)).json()['captions']['admitting'],1)
+  await self.pool.execute("INSERT INTO collection_control.operations(operation_id,collection_id,idempotency_key,kind,base_revision,base_epoch,artifact_sha256,targets,status) VALUES($1,'collection','fixture','snapshot',0,0,$2,ARRAY['elasticsearch'],'published')",op,'a'*64)
+  await self.pool.execute('UPDATE application.caption_publications SET operation_id=$2 WHERE caption_stage_key=$1',key,op)
+  data=(await client.get(url)).json()['captions'];self.assertEqual(data['completed'],1);self.assertEqual(data['publishing'],0)
+  self.assertEqual(await self.pool.fetchval('SELECT status FROM application.caption_publications WHERE caption_stage_key=$1',key),'pending')
+  from application.source_registry import SourceRegistry
+  from application.gui_health import live_run_progress
+  parent=await self.source('parent.html',status='published',current=True,web_role='page');await self.reference(r,parent)
+  registry=SourceRegistry(self.pool);source=await registry.create('collection',name='Fixture',seed_urls=['https://fixture.invalid/'],policy={'allowed_hosts':['fixture.invalid']},schedule={})
+  run=await registry.request(source['source_id'],'collection')
+  await self.pool.execute('INSERT INTO application.website_run_jobs(run_id,job_id) VALUES($1,$2)',run['run_id'],parent['job'])
+  await self.pool.execute('UPDATE application.web_asset_downloads SET child_job_id=$1 WHERE child_source_revision_id=$2',r['job'],r['revision'])
+  await self.pool.execute('UPDATE application.web_asset_references SET source_run_id=$1,source_version=1 WHERE parent_job_id=$2',run['run_id'],parent['job'])
+  self.assertEqual((await live_run_progress(self.pool,run['run_id']))['captions_published'],1)
+  await self.pool.execute("UPDATE collection_control.operations SET status='cancelled' WHERE operation_id=$1",op)
+  self.assertEqual((await client.get(url)).json()['captions']['failed'],1)
+
+ async def test_opted_in_empty_milvus_collection_is_empty_not_perpetually_pending(self):
+  await self.pool.execute("UPDATE application.collections SET requested_milvus=true")
+  await self.pool.execute("UPDATE collection_control.collections SET milvus_enabled=true")
+  row=(await (await self.client()).get('/api/collections')).json()['collections'][0]
+  self.assertEqual(row['milvus_status'],'empty');self.assertEqual(row['status'],'empty')
+
+ async def test_published_visible_documents_override_lagging_processing_job_summary(self):
+  r=await self.source('doc.pdf',status='published',current=True)
+  await self.pool.execute("UPDATE application.jobs SET status='processing',stage='publication' WHERE job_id=$1",r['job'])
+  client=await self.client();data=(await client.get('/api/jobs/'+str(r['job']))).json()
+  self.assertEqual(data['status'],'completed');self.assertEqual(data['stage'],'complete')
+  self.assertEqual(await self.pool.fetchval('SELECT status FROM application.jobs WHERE job_id=$1',r['job']),'processing')
+
  async def test_mixed_job_does_not_keep_an_obsolete_failure_summary(self):
   old=await self.source('bad.pdf',status='failed')
   good=await self.source('good.pdf',status='published',current=True,job=old['job'])

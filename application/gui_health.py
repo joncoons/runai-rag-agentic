@@ -65,8 +65,9 @@ GUI_SOURCE_CTES = '''WITH gui_live AS (
 CAPTION_ROWS = '''SELECT a.stage_key,a.parent_job_id,a.collection_id,a.document_id,
  r.filename,r.source_kind,r.web_role,p.operation_id,p.status AS publication_status,a.terminal_reason,
  a.manifest_uri,a.manifest_sha256,a.asset_sha256,s.status AS inference_status,
- CASE WHEN p.status='published' THEN 'completed'
-      WHEN a.terminal_reason IS NOT NULL OR s.status='deadlettered' OR p.status='failed' THEN 'failed'
+ CASE WHEN p.status='published' OR (p.status='pending' AND operation.status='published') THEN 'completed'
+      WHEN a.terminal_reason IS NOT NULL OR s.status='deadlettered' OR p.status='failed' OR operation.status='cancelled' THEN 'failed'
+      WHEN s.status='committed' AND p.operation_id IS NULL THEN 'admitting'
       WHEN s.status='committed' THEN 'publishing'
       WHEN s.status IN ('running','processing','leased') THEN 'processing'
       ELSE 'queued' END AS status
@@ -74,6 +75,7 @@ CAPTION_ROWS = '''SELECT a.stage_key,a.parent_job_id,a.collection_id,a.document_
  JOIN gui_caption_sources r ON r.document_id=a.document_id AND r.collection_id=a.collection_id
  LEFT JOIN public.stage_units s ON s.idempotency_key=a.stage_key
  LEFT JOIN application.caption_publications p ON p.caption_stage_key=a.stage_key
+ LEFT JOIN collection_control.operations operation ON operation.operation_id=p.operation_id AND operation.collection_id=a.collection_id
  WHERE COALESCE(p.last_error_type,'') NOT IN ('StaleWebImage','SupersededSource','CollectionDeleted')
    AND COALESCE(a.terminal_reason,'') NOT IN ('StaleWebImage','SupersededSource','CollectionDeleted','below_caption_library_minimum')'''
 
@@ -112,7 +114,7 @@ async def visible_captions(settings,rows):
 
 def visible_job_summary(row,documents,has_hidden_sources):
     """Project source health; never rewrite the authoritative historical job."""
-    if not has_hidden_sources:return row['status'],row['stage'],None
+    if not documents or (not has_hidden_sources and row['status'] in ('failed','cancelled','canceled')):return row['status'],row['stage'],None
     if any(d['status']=='failed' for d in documents):
         return 'failed',row['stage'],['Processing failed for a current source.']
     if any(d['status'] not in ('published','captured') for d in documents):
@@ -123,7 +125,7 @@ def visible_job_summary(row,documents,has_hidden_sources):
 
 def image_origin_summary(rows,visible_failed_keys=None):
     """Current caption candidates: pixels and associations have different units."""
-    origins={k:{'hashes':set(),'associations':0,'pending':0,'completed':0,'failed':0,'generated':0,'generating':0,'queued':0,'publishing':0} for k in ('webpage','pdf','other')}
+    origins={k:{'hashes':set(),'associations':0,'pending':0,'completed':0,'failed':0,'generated':0,'generating':0,'queued':0,'admitting':0,'publishing':0} for k in ('webpage','pdf','other')}
     for row in rows:
         if row['status']=='failed' and visible_failed_keys is not None and row['stage_key'] not in visible_failed_keys:continue
         origin=row.get('origin','other');item=origins.get(origin,origins['other'])
@@ -131,8 +133,9 @@ def image_origin_summary(rows,visible_failed_keys=None):
         item['associations']+=1
         state=row['status'] if row['status'] in ('completed','failed') else 'pending'
         item[state]+=1
-        if row.get('inference_status')=='committed' or row['status'] in ('publishing','completed'):item['generated']+=1
-        if row['status']=='publishing':item['publishing']+=1
+        if row.get('inference_status')=='committed' or row['status'] in ('admitting','publishing','completed'):item['generated']+=1
+        if row['status']=='admitting':item['admitting']+=1
+        elif row['status']=='publishing':item['publishing']+=1
         elif row['status']=='processing':item['generating']+=1
         elif row['status']=='queued':item['queued']+=1
     return {k:{'unique_images':len(v['hashes']),**{f:n for f,n in v.items() if f!='hashes'}} for k,v in origins.items()}
@@ -154,10 +157,12 @@ async def live_run_progress(pool,run_id):
       FROM application.web_asset_references ref JOIN application.web_asset_downloads d USING(download_id)
       WHERE ref.source_run_id=$1 AND d.state<>'cancelled' GROUP BY d.download_id,d.child_job_id,d.state
     ), captions AS (
-      SELECT DISTINCT a.stage_key,s.status AS inference,p.status AS publication
+      SELECT DISTINCT a.stage_key,s.status AS inference,
+       CASE WHEN p.status='pending' AND operation.status='published' THEN 'published' ELSE p.status END AS publication
       FROM assets d JOIN caption_control.assets a ON a.parent_job_id=d.child_job_id
       LEFT JOIN public.stage_units s ON s.idempotency_key=a.stage_key
       LEFT JOIN application.caption_publications p ON p.caption_stage_key=a.stage_key
+      LEFT JOIN collection_control.operations operation ON operation.operation_id=p.operation_id AND operation.collection_id=a.collection_id
       WHERE d.needs_captions AND a.terminal_reason IS NULL
       AND COALESCE(p.last_error_type,'') NOT IN ('StaleWebImage','SupersededSource','CollectionDeleted')
     ) SELECT (SELECT count(*) FROM pages) AS pages_captured,

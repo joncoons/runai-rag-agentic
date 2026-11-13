@@ -258,3 +258,7 @@ playwright-cli -s=gui-guide close
 ```
 
 The capture script verifies the fictional preview before recording any screen. Review the images, then run `python3 docs/gui/update_manifest.py`, stage the documentation, and run `python3 tools/audit_publication.py` in the clean publication repository when preparing a public update. Other binary files and images with text metadata remain excluded.
+
+### Reading current processing state
+
+A ready collection remains searchable during background work. Source counts refer to webpages and documents; native image-processing counts are separate. Caption generation, admission and store publication are separate stages: a generated caption is not yet necessarily published. Images with real processing errors remain visible even when captioning was not enabled. Milvus shows empty, pending or ready according to its current projection, rather than only its configuration. Search and Deep research refresh collection choices without discarding a drafted question. A refresh failure explicitly labels retained data as last known state.

@@ -117,7 +117,7 @@ test('caption rows show inference progress independently of publication',()=>{
  const f=fixture('collection');
  const html=f.run("imageOriginsView({image_origins:{webpage:{unique_images:10,associations:10,pending:10,queued:6,generating:1,generated:3,publishing:3,completed:0}}})");
  assert.match(html,/<th>Generated<\/th>/);assert.match(html,/<th>Awaiting publication<\/th>/);
- assert.match(html,/<td>6<\/td><td>1<\/td><td>3<\/td><td>3<\/td><td>0<\/td>/);
+ assert.match(html,/<td>6<\/td><td>1<\/td><td>3<\/td><td>0<\/td><td>3<\/td><td>0<\/td>/);
 });
 test('active run counts expose progress before a crawl finishes',()=>{
  const f=fixture();const text=f.run("sourceCounts({pages_captured:12,pages_published:9,assets_discovered:20,assets_downloaded:8,captions_generated:4,captions_published:0})");
@@ -145,4 +145,53 @@ test('caption generation and downstream publication have distinct counters',()=>
  const pending=f.run("processingView({processing:{captions_pending:3,captions_awaiting_publication:25}})");
  assert.match(pending,/Caption generation pending/);
  assert.match(pending,/Captions awaiting publication/);
+});
+
+test('concurrent collection refresh callers wait for the same fresh snapshot',async()=>{
+ const f=fixture('collection');f.run('state.collectionLoading=false; if(typeof collectionRefresh!=="undefined")collectionRefresh=null; render=()=>{};updateScope=()=>{};');
+ let release;let calls=0;f.context.fetch=()=>{calls++;return new Promise(resolve=>release=()=>resolve({ok:true,json:async()=>({collections:[{id:'c1',name:'Fresh'}]})}));};
+ const first=f.run('refreshCollections()');let done=false;const second=f.run('refreshCollections()').then(()=>done=true);
+ await Promise.resolve();assert.equal(done,false);assert.equal(calls,1);release();await Promise.all([first,second]);assert.equal(f.run('state.collections[0].name'),'Fresh');
+});
+
+test('successful creation opens its own returned collection despite failed list refresh',async()=>{
+ const f=fixture('new');const form=f.element('create-form');f.element('collection-name','fictional_product_docs');f.element('also-milvus');const error=f.element('form-error');
+ f.run('state.collectionLoading=false; if(typeof collectionRefresh!=="undefined")collectionRefresh=null; render=()=>{};updateScope=()=>{};');
+ f.context.fetch=async(url,options={})=>options.method==='POST'?{ok:true,json:async()=>({id:'new-id',name:'fictional_product_docs',also_write_milvus:false,status:'empty',documents:0})}:{ok:false,status:503,json:async()=>({detail:'List temporarily unavailable'})};
+ f.run('bind()');await form.events.submit({preventDefault(){},currentTarget:form});assert.equal(f.context.location.hash,'#collection/new-id');assert.equal(error.textContent,'');assert.equal(f.run('state.collections.find(c=>c.id==="new-id")?.name'),'fictional_product_docs');
+});
+
+test('collection drill-down distinguishes Milvus enrollment from ready search data',()=>{
+ const f=fixture('collection');f.run("state.collections=[{id:'c1',name:'Fixture',also_write_milvus:true,milvus_status:'pending',elasticsearch_status:'ready'}]");
+ const html=f.run('collectionView()');assert.match(html,/Milvus:.*pending/);assert.doesNotMatch(html,/Milvus: enabled/);
+});
+
+test('collection refresh errors stay visible on drill-down without hiding last known data',()=>{
+ const f=fixture('collection');f.run("state.collectionError='Unable to refresh current state';");const html=f.run('collectionView()');assert.match(html,/Unable to refresh current state/);assert.match(html,/last known/i);assert.match(html,/>Documents<\/h1>/);
+});
+
+test('image extraction and caption admission are labeled separately from document work',()=>{
+ const f=fixture('collection');const html=f.run("processingView({processing:{sources_pending:2,image_sources_pending:4,captions_awaiting_admission:7,captions_awaiting_publication:3}})");
+ assert.match(html,/Image processing pending/);assert.match(html,/Captions awaiting admission/);assert.match(html,/Captions awaiting publication/);
+});
+
+
+test('a delayed pre-creation snapshot cannot erase a successfully created collection',async()=>{
+ const f=fixture('new');const form=f.element('create-form');f.element('collection-name','New');f.element('also-milvus');f.element('form-error');
+ f.run('state.collectionLoading=false; if(typeof collectionRefresh!=="undefined")collectionRefresh=null; render=()=>{};updateScope=()=>{};');
+ let release;f.context.fetch=async(url,options={})=>options.method==='POST'?{ok:true,json:async()=>({id:'new-id',name:'New'})}:new Promise(resolve=>release=()=>resolve({ok:true,json:async()=>({collections:[{id:'c1',name:'Old'}]})}));
+ const refresh=f.run('refreshCollections()');f.run('bind()');await form.events.submit({preventDefault(){},currentTarget:form});
+ assert.equal(f.context.location.hash,'#collection/new-id');release();await refresh;assert.equal(f.run('state.collections.find(c=>c.id==="new-id")?.name'),'New');
+});
+
+test('search collection choices refresh without replacing a drafted query',async()=>{
+ const f=fixture('search');const choices=f.element('collection-choices');const query=f.element('query','Keep this draft');
+ f.run('state.collectionLoading=false;if(typeof collectionRefresh!=="undefined")collectionRefresh=null;render=()=>{throw Error("Full form repaint")};');
+ f.context.fetch=async()=>({ok:true,json:async()=>({collections:[{id:'c2',name:'New collection',also_write_milvus:true,milvus_status:'pending'}]})});
+ await f.run('refreshCollections()');assert.match(choices.innerHTML,/New collection/);assert.match(choices.innerHTML,/Milvus.*pending/i);assert.equal(query.value,'Keep this draft');
+});
+
+
+test('failed native image extraction remains a true error without caption failures',()=>{
+ const f=fixture('collection');const html=f.run("processingView({processing:{image_sources_failed:1}})");assert.match(html,/Current image processing errors/);assert.match(html,/<dd>1<\/dd>/);
 });

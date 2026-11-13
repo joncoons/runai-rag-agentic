@@ -16,7 +16,8 @@ class CollectionManagementTests(unittest.IsolatedAsyncioTestCase):
   result=(await (await self.client()).get('/api/collections')).json()['collections'][0]
   self.assertEqual(result['status'],'ready')
   self.assertEqual(result['elasticsearch_status'],'ready')
-  self.assertGreater(result['processing']['sources_pending'],0)
+  self.assertEqual(result['processing']['sources_pending'],0)
+  self.assertGreater(result['processing']['image_sources_pending'],0)
   self.assertGreater(result['processing']['captions_pending'],0)
  async def test_image_origins_count_unique_hashes_separately_from_associations(self):
   parent=await self.source('page.html',status='published',current=True,web_role='page')
@@ -96,7 +97,8 @@ class CollectionManagementTests(unittest.IsolatedAsyncioTestCase):
   child=await self.source('chart.png',web_role='image');await self.reference(child,parent)
   await self.pool.execute("INSERT INTO public.stage_units(idempotency_key,job_id,document_id,stage,status,input_envelope) VALUES($1,$2,$3,'extraction','committed','{}')",'sha256:'+'d'*64,child['job'],child['doc'])
   result=(await (await self.client()).get('/api/collections')).json()['collections'][0]
-  self.assertEqual(result['processing']['admission_waiting'],1)
+  self.assertEqual(result['processing']['admission_waiting'],0)
+  self.assertEqual(result['processing']['image_admission_waiting'],1)
  async def test_url_edits_reject_saved_credentials_and_fragments(self):
   from application.source_registry import SourceRegistry
   registry=SourceRegistry(self.pool)
