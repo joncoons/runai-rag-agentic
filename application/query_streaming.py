@@ -33,6 +33,8 @@ async def chat_stream(query,messages,*,max_tokens=2048):
                     return
                 try:
                     event=json.loads(data)
+                    observer=getattr(response,'record_model_event',None)
+                    if observer:observer(event)
                     if 'error' in event:raise ValueError()
                     choices=event['choices']
                     if choices==[]:continue

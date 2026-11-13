@@ -1,0 +1,94 @@
+{{- if .Values.routing.enabled }}
+{{- $image := required "Set routing.image to the qualified immutable Switchyard image" .Values.routing.image -}}
+{{- if not (regexMatch "@sha256:[a-f0-9]{64}$" $image) }}{{ fail "routing.image must use an immutable sha256 digest" }}{{ end -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-switchyard
+  labels:
+    {{- include "rag.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      app.kubernetes.io/component: switchyard
+  template:
+    metadata:
+      labels:
+        {{- include "rag.labels" . | nindent 8 }}
+        app.kubernetes.io/component: switchyard
+    spec:
+      schedulerName: {{ .Values.runai.schedulerName }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.routing.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: switchyard
+        image: {{ $image | quote }}
+        imagePullPolicy: IfNotPresent
+        command: [switchyard-server]
+        args: [--config, /routing/routes.toml, --host, 0.0.0.0, --port, '4000']
+        ports:
+        - name: http
+          containerPort: 4000
+        env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: void
+        - name: CUDA_VISIBLE_DEVICES
+          value: ''
+        readinessProbe:
+          httpGet:
+            path: /v1/models
+            port: http
+        resources:
+          {{- toYaml .Values.routing.resources | nindent 10 }}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - name: routing
+          mountPath: /routing
+          readOnly: true
+        - name: temporary
+          mountPath: /tmp
+      volumes:
+      - name: routing
+        configMap:
+          name: {{ required "Set routing.configMap" .Values.routing.configMap | quote }}
+      - name: temporary
+        emptyDir:
+          medium: Memory
+          sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-switchyard
+  labels:
+    {{- include "rag.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/component: switchyard
+  ports:
+  - name: http
+    port: 4000
+    targetPort: http
+{{- end }}

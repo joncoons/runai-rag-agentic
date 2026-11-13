@@ -1,3 +1,4 @@
+{{- if and .Values.routing.researchEnabled (not .Values.routing.enabled) }}{{ fail "routing.researchEnabled requires routing.enabled" }}{{ end -}}
 {{- if or .Values.application.enabled .Values.migrations.enabled }}
 {{- $root := . -}}
 {{- $roles := .Values.application.roles -}}
@@ -33,6 +34,10 @@
 {{- $secret := required "research.webSearch.secretName is required when web search is enabled" $root.Values.research.webSearch.secretName -}}
 {{- $env = append $env (dict "name" "TAVILY_API_KEY" "valueFrom" (dict "secretKeyRef" (dict "name" $secret "key" $root.Values.research.webSearch.secretKey))) -}}
 {{- end -}}
+{{- if and (eq $role "research") $root.Values.routing.researchEnabled -}}
+{{- $env = append $env (dict "name" "RESEARCH_ROUTING_ENABLED" "value" "true") -}}
+{{- $env = append $env (dict "name" "RESEARCH_ROUTING_CONFIG_FILE" "value" "/routing/research-client.json") -}}
+{{- end -}}
 {{- $env = concat $env (list (dict "name" "NVIDIA_VISIBLE_DEVICES" "value" "void") (dict "name" "CUDA_VISIBLE_DEVICES" "value" "")) -}}
 {{- $_ := set $container "env" $env -}}
 {{- $mounts := list -}}
@@ -45,6 +50,10 @@
 {{- end -}}
 {{- range $filename := list "model-bindings.json" "model-contracts.json" "location-roots.json" -}}
 {{- $mounts = append $mounts (dict "name" "bindings" "mountPath" (printf "/app/config/%s" $filename) "subPath" $filename "readOnly" true) -}}
+{{- end -}}
+{{- if and (eq $role "research") $root.Values.routing.researchEnabled -}}
+{{- $mounts = append $mounts (dict "name" "routing-client" "mountPath" "/routing" "readOnly" true) -}}
+{{- $volumes = append $volumes (dict "name" "routing-client" "configMap" (dict "name" (required "Set routing.configMap" $root.Values.routing.configMap))) -}}
 {{- end -}}
 {{- $_ := set $container "volumeMounts" $mounts -}}
 {{- $_ := set $spec "volumes" (append $volumes (dict "name" "bindings" "configMap" (dict "name" (printf "%s-bindings" $root.Release.Name)))) -}}

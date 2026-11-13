@@ -46,6 +46,8 @@ async def serve(pool,redis,query,stop,*,stream='rag.agentic.research.pending',ex
 
 async def main():
  from .web_research import enabled
+ from .research_routing import enabled as routing_enabled,load_config
+ if routing_enabled():load_config()
  if enabled() and not os.environ.get('TAVILY_API_KEY','').strip():raise RuntimeError('Enabled web research requires its worker credential')
  ctx=await Context(Settings.load()).open();catalog=QueryCatalog(ctx.pool,snapshots=ctx.settings.snapshots)
  redis=Redis.from_url(ctx.settings.redis_url);stop=asyncio.Event();health=None

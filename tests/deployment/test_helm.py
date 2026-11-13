@@ -30,6 +30,19 @@ class HelmContracts(unittest.TestCase):
    else:self.assertNotIn('TAVILY_API_KEY',env)
   v['research']['webSearch']['secretName']='';self.render(v,success=False)
   self.assertFalse(self.values()['research']['webSearch']['enabled'])
+ def test_workload_routing_is_explicit_and_confined_to_ordinary_research(self):
+  v=self.values();v['routing']['enabled']=True;v['routing']['researchEnabled']=True;v['routing']['image']='registry.example/switchyard@sha256:'+'b'*64
+  docs=self.render(v);deploy=[d for d in docs if d['kind']=='Deployment'];self.assertEqual(len(deploy),17)
+  for d in deploy:
+   pod=d['spec']['template']['spec'];c=pod['containers'][0];env={e['name']:e for e in c.get('env',[])}
+   if d['metadata']['name']=='rag-switchyard':
+    self.assertFalse(pod['automountServiceAccountToken']);self.assertEqual(pod['schedulerName'],'runai-scheduler');self.assertFalse(any('secret' in e for e in c.get('env',[])))
+    self.assertFalse(any('persistentVolumeClaim' in vol or 'secret' in vol for vol in pod['volumes']));self.assertNotIn('nvidia.com/gpu',c['resources'].get('limits',{}))
+   elif d['metadata']['name']=='rag-research':
+    self.assertEqual(env['RESEARCH_ROUTING_ENABLED']['value'],'true');self.assertTrue(any(m['mountPath']=='/routing' and m['readOnly'] for m in c['volumeMounts']))
+   else:self.assertNotIn('RESEARCH_ROUTING_ENABLED',env)
+  v['routing']['enabled']=False;self.render(v,success=False)
+  v=self.values();self.assertFalse(v['routing']['enabled']);self.assertFalse(v['routing']['researchEnabled'])
  def test_defaults_reject_unconfigured_installation(self):
   self.render(yaml.safe_load((ROOT/'charts/agentic-rag/values.yaml').read_text()),success=False)
  def test_application_roles_secrets_and_readiness(self):

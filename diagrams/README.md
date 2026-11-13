@@ -2,6 +2,12 @@
 
 Click a diagram to open its full-size SVG. Labels use native SVG text; editable Mermaid sources are linked below each preview.
 
+## Workload-specific model routing
+
+[![Workload-specific model routing](workload-model-routing.svg)](workload-model-routing.svg)
+
+[Mermaid source](workload-model-routing.mmd) · [Full-size SVG](workload-model-routing.svg)
+
 ## Document analysis and durable research
 
 [![Document analysis and durable research](document-analysis-and-research.svg)](document-analysis-and-research.svg)

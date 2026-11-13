@@ -1,0 +1,17 @@
+flowchart TB
+  search["Interactive search"] --> fixed["Fixed LLM of record"]
+  research["User starts deep research"] --> phase["Planning or synthesis phase"]
+  phase --> task["Switchyard task classifier"]
+  task --> pin["Checkpoint approved model and policy"]
+  pin --> model["Local efficient or capable model"]
+  pin --> resume["Resume with fixed phase alias"]
+  resume --> model
+  code["Disposable coding job"] --> session["Fresh job identity and full tool history"]
+  session --> composite["Switchyard Composite policy"]
+  composite --> model
+  model --> checks["Grounded evidence or independent code acceptance"]
+  checks --> artifacts["Research checkpoints or job artifacts"]
+  artifacts --> cleanup["Expire private data or remove coding sandbox"]
+  service["One CPU routing service"] -.-> task
+  service -.-> composite
+  permissions["Existing tool and egress permissions"] -.-> checks

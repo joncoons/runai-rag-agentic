@@ -70,6 +70,30 @@
           }
         }
       }
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "researchEnabled": {
+          "type": "boolean"
+        },
+        "image": {
+          "type": "string"
+        },
+        "configMap": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nodeSelector": {
+          "type": "object"
+        },
+        "resources": {
+          "type": "object"
+        }
+      }
     }
   }
 }
