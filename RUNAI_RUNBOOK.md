@@ -269,3 +269,9 @@ Private workspaces default to **24 hours**. Ownership is tied to the browser ses
 Qualification before sharing should cover upload/answer/source download, independent captions, owner isolation, immediate deletion and eventual physical cleanup, allowed/denied promotion, both selected-store receipts, local research cancellation/resume, stream reconnection and report download. A generic Helm install on another cluster has not been runtime-qualified by the repository's local tests.
 
 The new workflow chart source is version 0.2.0. Its private option has been rendered and contract-tested locally; a new packaged/tagged release has not been published. Use the chart source above when qualifying these workflows. Existing 0.1.0 release assets contain the earlier application layout.
+
+### Private-workflow acceptance checks
+
+Before enabling the private navigation in a new installation, verify owned document upload/question/download; a second session must receive 404. Stop the separate caption worker during an image-bearing PDF test: text and grounded answers must become ready independently, then captions publish after the worker resumes. Delete the workspace and verify access is fenced immediately and its files, rows and private indexes are subsequently purged. Private Elasticsearch roles remain restricted to `rag_analysis_*`; cleanup uses scoped index metadata and does not require cluster-monitor privileges.
+
+Run a bounded collection research job, reconnect its event stream and download the completed report. Submit a synthetic ordinary upload to a destination enrolled in both Elasticsearch and Milvus: PostgreSQL must record both matching receipts before publication. Promotion requires an explicit destination write grant; do not grant wildcard access for acceptance. Confirm an active ordinary-file extraction consumer before enabling uploads/promotions; avoid adding a second consumer if the foreground deployment already serves that stream.

@@ -76,11 +76,12 @@ async def purge_indexes(base,manifest):
  prefixes=['rag_analysis_'+UUID(x).hex+'_' for x in manifest['operations']]
  if not prefixes:return
  endpoint=base.settings.es_endpoint.rstrip('/')
- async with base.es_http.get(endpoint+'/_cat/indices/rag_analysis_*?format=json&h=index') as response:
+ # Index metadata needs only the scoped private-index privileges. The CAT API
+ # would require cluster monitoring rights that private workers do not hold.
+ async with base.es_http.get(endpoint+'/rag_analysis_*?allow_no_indices=true&expand_wildcards=all&filter_path=*.aliases') as response:
   if response.status!=200:raise Conflict('Private index cleanup could not list its projection')
   indices=await response.json()
- for row in indices:
-  name=row['index']
+ for name in indices:
   if any(name.startswith(prefix) for prefix in prefixes):
    from collection_control.stores import require_handle
    require_handle(name,'es')

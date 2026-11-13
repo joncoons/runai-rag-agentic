@@ -4,7 +4,7 @@ function fixture(view){
  const nodes=new Map();for(const id of ['view','main','notice','connection'])nodes.set(id,{innerHTML:'',textContent:'',dataset:{},querySelectorAll:()=>[],focus(){}});
  const context=vm.createContext({console,URL,FormData,Intl,Date,location:{hash:'#'+view,origin:'http://fixture'},document:{getElementById:id=>nodes.get(id)||null,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){},scrollTo(){}},sessionStorage:{getItem(){return '[]'},setItem(){}},fetch:()=>new Promise(()=>{}),setInterval(){},setTimeout(){}});
  for(const file of ['workflows.js','app.js'])vm.runInContext(fs.readFileSync('application/static/'+file,'utf8'),context);
- return {run:code=>vm.runInContext(code,context),context};
+ return {run:code=>vm.runInContext(code,context),context,nodes};
 }
 test('three user-selected modes have distinct navigation, titles and input flows',()=>{
  const index=fs.readFileSync('application/static/index.html','utf8');
@@ -28,4 +28,21 @@ test('document navigation hides stale details and discards a delayed response fo
  f.run("location.hash='#document/A';workflowState.document=null;workflowState.loading=false;workflowSession=async()=>({});api=()=>new Promise(resolve=>globalThis.finishRequest=resolve);globalThis.pendingRefresh=refreshWorkflows();");
  await Promise.resolve();f.run("location.hash='#document/B';finishRequest(payload);");await f.context.pendingRefresh;
  assert.notEqual(f.run('workflowState.document?.id'),'A');
+});
+
+test('owned document refresh enables actions that waited for document loading',async()=>{
+ const f=fixture('analysis'),controls=[{disabled:true,dataset:{waitingDocument:''}},{disabled:true,dataset:{waitingDocument:''}}];
+ f.nodes.get('view').querySelectorAll=selector=>selector==='[data-waiting-document]'?controls:[];
+ f.nodes.get('view').querySelector=()=>null;
+ for(const id of ['document-status','document-expiry','document-question','document-promotions'])f.nodes.set(id,{innerHTML:'',textContent:'',disabled:true});
+ f.nodes.set('document-question-form',{querySelector:()=>({disabled:true})});
+ f.context.payload={id:'A',filename:'Owned.pdf',ready:true,expires_at:'2027-01-01T00:00:00Z',run:null,promotions:[]};
+ f.run("location.hash='#document/A';workflowState.loading=false;workflowSession=async()=>({});api=async()=>payload;globalThis.refresh=refreshWorkflows();");await f.context.refresh;
+ assert.equal(controls.every(button=>!button.disabled),true);
+});
+test('expired document refresh clears cached private detail and report',async()=>{
+ const f=fixture('analysis');
+ f.run("location.hash='#document/A';workflowState.loading=false;workflowState.document={id:'A',filename:'Expired private detail'};workflowState.documentRun={id:'report',report:'Expired private report'};workflowSession=async()=>({});api=async()=>{const e=new Error('Document unavailable');e.status=404;throw e};globalThis.refresh=refreshWorkflows();");await f.context.refresh;
+ assert.equal(f.run('workflowState.document'),null);assert.equal(f.run('workflowState.documentRun'),null);
+ assert.doesNotMatch(f.nodes.get('view').innerHTML,/Expired private/);
 });

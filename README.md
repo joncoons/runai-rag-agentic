@@ -30,7 +30,7 @@ The NVIDIA base image requires the appropriate registry access and NVIDIA/model 
 
 Elasticsearch and Milvus do not participate in a shared database transaction. PostgreSQL tracks each required projection and controls logical publication, retry and recovery. Readers see the committed collection view after the required receipts have been verified.
 
-Temporary document-only analysis and document-level graph/abstract experimentation are outside this release. External enterprise IAM integration is installation-specific; the included local admin is for local phase-1 operation.
+Document-level graph/abstract experimentation is outside this release. Temporary document analysis is available through the separately configured private workflow described below. External enterprise IAM integration is installation-specific; the included local admin is for local phase-1 operation.
 
 Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). No license file is supplied for original application code.
 
