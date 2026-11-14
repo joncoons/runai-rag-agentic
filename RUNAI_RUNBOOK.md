@@ -296,7 +296,7 @@ PostgreSQL checkpoints retain the opt-in, provider steps and excerpt evidence wi
 
 ## Optional workload-specific model routing
 
-The optional CPU-only Switchyard service supports task-based routing for research phases and Composite routing for an external disposable coding harness. Interactive search retains its fixed streaming model. Both Helm switches are off by default; qualify both model endpoints and routing quality before enabling them. See [routing behavior, rendering, qualification, Run:ai configuration and rollback](docs/WORKLOAD_ROUTING.md). The callable research-to-coding tool is a separate integration; deploying a router does not create that agent or grant sandbox administration.
+The optional CPU-only Switchyard service supports task-based routing for research phases and Composite routing for an external disposable coding harness. Interactive Search defaults to its fixed streaming model; its optional three-model routing is configured independently below. Routing switches are off by default; qualify the relevant model endpoints and policies before enabling them. See [routing behavior, rendering, qualification, Run:ai configuration and rollback](docs/WORKLOAD_ROUTING.md). The callable research-to-coding tool is a separate integration; deploying a router does not create that agent or grant sandbox administration.
 
 Optional Search routing: see [three-model configuration, consent, qualification and rollback](docs/SEARCH_ROUTING.md). Keep it disabled until your model endpoints and Run:ai lifecycle controls pass acceptance.
 
