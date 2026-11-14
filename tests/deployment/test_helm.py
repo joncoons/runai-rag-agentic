@@ -43,6 +43,18 @@ class HelmContracts(unittest.TestCase):
    else:self.assertNotIn('RESEARCH_ROUTING_ENABLED',env)
   v['routing']['enabled']=False;self.render(v,success=False)
   v=self.values();self.assertFalse(v['routing']['enabled']);self.assertFalse(v['routing']['researchEnabled'])
+ def test_search_routing_mount_and_provider_credential_are_separate(self):
+  v=self.values();v['routing'].update(enabled=True,searchEnabled=True,image='registry.example/switchyard@sha256:'+'b'*64)
+  v['routing']['hosted'].update(enabled=True,secretName='hosted-provider')
+  docs=self.render(v)
+  for d in docs:
+   if d['kind']!='Deployment':continue
+   c=d['spec']['template']['spec']['containers'][0];env={e['name']:e for e in c.get('env',[])}
+   if d['metadata']['name']=='rag-api':self.assertEqual(env['SEARCH_ROUTING_ENABLED']['value'],'true');self.assertNotIn('NVIDIA_REMOTE_API_KEY',env)
+   elif d['metadata']['name']=='rag-switchyard':self.assertEqual(env['NVIDIA_REMOTE_API_KEY']['valueFrom']['secretKeyRef']['name'],'hosted-provider')
+   else:self.assertNotIn('SEARCH_ROUTING_ENABLED',env);self.assertNotIn('NVIDIA_REMOTE_API_KEY',env)
+  v['routing']['hosted']['secretName']='';self.render(v,success=False)
+  v['routing']['enabled']=False;self.render(v,success=False)
  def test_defaults_reject_unconfigured_installation(self):
   self.render(yaml.safe_load((ROOT/'charts/agentic-rag/values.yaml').read_text()),success=False)
  def test_application_roles_secrets_and_readiness(self):

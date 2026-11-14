@@ -48,6 +48,13 @@ spec:
           value: void
         - name: CUDA_VISIBLE_DEVICES
           value: ''
+        {{- if .Values.routing.hosted.enabled }}
+        - name: NVIDIA_REMOTE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ required "routing.hosted.secretName is required" .Values.routing.hosted.secretName | quote }}
+              key: {{ .Values.routing.hosted.secretKey | quote }}
+        {{- end }}
         readinessProbe:
           httpGet:
             path: /v1/models

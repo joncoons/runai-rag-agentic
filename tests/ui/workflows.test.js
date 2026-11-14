@@ -66,3 +66,12 @@ test('external sources are explicitly labeled in research reports',()=>{
  const f=fixture('research');f.context.run={id:'run',status:'completed',include_web:true,collection_ids:[],queries:['Q'],completed_queries:['Q'],sources:[{citation_id:'S1',title:'Public guide',uri:'https://public.example/guide',evidence_origin:'web_search'}],warnings:[],report:'Grounded report',search_budget:1};
  assert.match(f.run('workflowReport(run)'),/External web/);
 });
+
+test('Search remote inference defaults off and is separate from research web search',()=>{
+ const f=fixture('search');let html=f.run('searchView()');
+ assert.match(html,/Allow remote inference/);assert.doesNotMatch(html,/<input[^>]*id="allow-remote"[^>]*checked/);
+ f.run('state.allowRemote=true;');html=f.run('searchView()');assert.match(html,/<input[^>]*id="allow-remote"[^>]*checked/);
+ assert.doesNotMatch(f.run('workflowView({view:"research"})'),/id="allow-remote"/);
+ f.run('state.result={answer:"Grounded answer",sources:[],warnings:[],routing:{tier:"small",model:"<unsafe>",response_header_ms:42}};');
+ html=f.run('resultsView()');assert.match(html,/&lt;unsafe&gt;/);assert.doesNotMatch(html,/<unsafe>/);assert.match(html,/42 ms/);
+});

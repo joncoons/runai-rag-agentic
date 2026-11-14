@@ -30,6 +30,8 @@ MAX_FOLLOWUPS = 2
 
 class QueryState(TypedDict, total=False):
     query: str
+    allow_remote: bool
+    routing: dict
     collection_ids: list[str]
     backend: str
     mode: str
@@ -428,8 +430,14 @@ class RAGQuery:
 
     async def _answer(self, state):
         sources=state.get('sources',[])
-        answer=await self._chat(self._answer_messages(state))
+        messages=self._answer_messages(state)
+        client=self
+        if state.get('mode','search')=='search':
+            from .search_routing import answer_client
+            client=answer_client(self,messages,allow_remote=state.get('allow_remote',False))
+        answer=await client._chat(messages)
         warnings = list(state.get('warnings', []))
+        if getattr(client,'search_routing',{}).get('remote_context_excluded'):warnings.append('The complete input exceeds the hosted context eligibility budget; this answer used a local model without truncation.')
         allowed = {s['citation_id'] for s in sources}
         invalid = False
         def citation(match):
@@ -442,18 +450,19 @@ class RAGQuery:
         if invalid:
             warnings.append('Unverified model citation IDs were removed from the answer.')
         await self._checkpoint('answer', {'answer': answer, 'sources': sources, 'mode': state['mode']})
-        return {'answer': answer, 'warnings': warnings}
+        return {'answer': answer, 'warnings': warnings, **({'routing':client.search_routing} if hasattr(client,'search_routing') else {})}
 
-    async def search(self, query, collection_ids, backend='elasticsearch', mode='search'):
+    async def search(self, query, collection_ids, backend='elasticsearch', mode='search', *, allow_remote=False):
+        if type(allow_remote) is not bool or (allow_remote and mode!='search'):raise Conflict('Remote permission is valid only for ordinary Search')
         self._validate(query, collection_ids, backend, mode)
         result = await self.graph.ainvoke({'query': query, 'collection_ids': list(collection_ids),
-            'backend': backend, 'mode': mode, 'queries': [query]}, {'recursion_limit': 8})
-        return {'answer': result['answer'], 'sources': result.get('sources', []), 'warnings': result.get('warnings', [])}
+            'backend': backend, 'mode': mode, 'queries': [query], 'allow_remote':allow_remote}, {'recursion_limit': 8})
+        return {'answer': result['answer'], 'sources': result.get('sources', []), 'warnings': result.get('warnings', []), **({'routing':result['routing']} if 'routing' in result else {})}
 
     def _chat_stream(self,messages,*,max_tokens=2048):
         from .query_streaming import chat_stream
         return chat_stream(self,messages,max_tokens=max_tokens)
 
-    def stream_search(self,query,collection_ids,backend='elasticsearch',mode='search'):
+    def stream_search(self,query,collection_ids,backend='elasticsearch',mode='search',*,allow_remote=False):
         from .query_streaming import search_events
-        return search_events(self,query,collection_ids,backend,mode)
+        return search_events(self,query,collection_ids,backend,mode,allow_remote=allow_remote)

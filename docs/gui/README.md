@@ -268,3 +268,9 @@ A ready collection remains searchable during background work. Source counts refe
 The **Include web search** checkbox is off by default. When the operator has configured Tavily, check it to combine public web evidence with the selected collections, or select no collections for web-only research. The choice resets after submission. Your question and planned search terms are sent to Tavily; collection passages and private documents stay local. Search budget counts planned queries, each of which can use both selected providers. Reports label external web excerpts and link to their original URLs. Document analysis has no web-search option. Downloading and analyzing full linked PDFs is a separate upcoming tool capability.
 
 [![Optional web evidence with fictional Atlas collections](images/24-web-research-opt-in.png)](images/24-web-research-opt-in.png)
+
+## Search model routing
+
+![Fictional Search with model routing](images/25-search-model-routing.png)
+
+Search automatically chooses a configured model tier. The answer shows its selected model and response-header latency, which includes routing and upstream startup. **Allow remote inference** is a separate per-query opt-in: the question and retrieved excerpts may leave the installation when enabled. It resets after submission completes. This fictional preview uses a synthetic answer and illustrative timing, not a live provider request.

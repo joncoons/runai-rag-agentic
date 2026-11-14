@@ -65,7 +65,8 @@ class CitationFilter:
             self.invalid=True;return ''
         return re.sub(r'\[(S\d+)\]',citation,text)
 
-async def search_events(query,question,collection_ids,backend='elasticsearch',mode='search'):
+async def search_events(query,question,collection_ids,backend='elasticsearch',mode='search',*,allow_remote=False):
+    if type(allow_remote) is not bool or (allow_remote and mode!='search'):raise Conflict('Remote permission is valid only for ordinary Search')
     began=time.monotonic();elapsed=lambda:round((time.monotonic()-began)*1000,2)
     query._validate(question,collection_ids,backend,mode)
     state={'query':question,'collection_ids':list(collection_ids),'backend':backend,'mode':mode,'queries':[question]}
@@ -74,7 +75,11 @@ async def search_events(query,question,collection_ids,backend='elasticsearch',mo
     state.update(await query._evidence(state))
     model_start=elapsed();first_model=None;first_answer=None;answer='';filter=CitationFilter(state['sources'])
     yield {'event':'status','data':{'stage':'generating','elapsed_ms':elapsed()}}
-    async with aclosing(query._chat_stream(query._answer_messages(state))) as pieces:
+    messages=query._answer_messages(state);client=query
+    if mode=='search':
+        from .search_routing import answer_client
+        client=answer_client(query,messages,allow_remote=allow_remote)
+    async with aclosing(client._chat_stream(messages)) as pieces:
         async for chunk in pieces:
             if first_model is None:first_model=elapsed()
             text=filter.feed(chunk)
@@ -87,8 +92,10 @@ async def search_events(query,question,collection_ids,backend='elasticsearch',mo
         answer+=tail
         if first_answer is None:first_answer=elapsed()
         yield {'event':'delta','data':{'text':tail,'elapsed_ms':elapsed()}}
+    routing=getattr(client,'search_routing',None)
     warnings=list(state.get('warnings',[]))
+    if routing and routing.get('remote_context_excluded'):warnings.append('The complete input exceeds the hosted context eligibility budget; this answer used a local model without truncation.')
     if filter.invalid:warnings.append('Unverified model citation IDs were removed from the answer.')
     await query._checkpoint('answer',{'answer':answer,'sources':state['sources'],'mode':mode})
-    yield {'event':'complete','data':{'answer':answer,'sources':state['sources'],'warnings':warnings,'timings':{
+    yield {'event':'complete','data':{'answer':answer,'sources':state['sources'],'warnings':warnings,**({'routing':routing} if routing else {}),'timings':{
         'generation_start_ms':model_start,'first_model_content_ms':first_model,'first_answer_text_ms':first_answer,'complete_ms':elapsed()}}}

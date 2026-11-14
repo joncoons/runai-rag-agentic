@@ -93,6 +93,12 @@ class SearchRequest(BaseModel):
     collection_ids: list[str] = Field(default_factory=list, max_length=12)
     backend: Literal['elasticsearch', 'milvus'] = 'elasticsearch'
     mode: Literal['search', 'deep_research'] = 'search'
+    allow_remote: StrictBool = False
+
+    @model_validator(mode='after')
+    def remote_search_only(self):
+        if self.allow_remote and self.mode!='search':raise ValueError('Remote permission is valid only for ordinary Search')
+        return self
 
     @field_validator('collection_ids')
     @classmethod
@@ -554,8 +560,10 @@ def create_app(*, context=None, query_service=None, submitter=None, web_submitte
     @app.post('/api/search')
     async def search(body: SearchRequest, request: Request):
         service=search_service(request)
-        return await service.search(body.query, body.collection_ids, backend=body.backend, mode=body.mode)
+        return await service.search(body.query, body.collection_ids, backend=body.backend, mode=body.mode, **({'allow_remote':True} if body.allow_remote else {}))
 
+    from application.search_routing import enabled as search_routing_enabled, load_config as search_routing_config
+    if search_routing_enabled():search_routing_config()
     from application.search_stream_api import install_stream_routes
     install_stream_routes(app,search_service)
 

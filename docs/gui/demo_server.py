@@ -64,6 +64,7 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/search/stream':
             self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
             answer=ANSWER if body.get('collection_ids') else {'answer':'This workspace can organize product guides, connect approved sources and help you find information in the collections you choose.','sources':[],'warnings':[]}
+            answer={**answer,'routing':{'tier':'small','model':'nvidia/nemotron-3.5-lightning','response_header_ms':120,'illustrative':True}}
             for event,value in [('status',{'stage':'generating'}),('delta',{'text':answer['answer']}),('complete',answer)]:self.wfile.write(('event: '+event+'\ndata: '+json.dumps(value)+'\n\n').encode());self.wfile.flush()
             return
         self.send({'detail':'Visual preview only; this action does not create or change data.'},405)

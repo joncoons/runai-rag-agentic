@@ -145,6 +145,12 @@
       "sha256": "84eef8f84715ef649aa6580d424ab4fd937c40eae667193bb5e8dc35508abb74",
       "width": 1440,
       "height": 1040
+    },
+    {
+      "path": "docs/gui/images/25-search-model-routing.png",
+      "sha256": "a42b07a5574b9cfcd9f2663a913d54f3181da584f074bfe2a7761b5ec4b31c22",
+      "width": 1440,
+      "height": 1040
     }
   ]
 }

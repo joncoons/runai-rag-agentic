@@ -51,8 +51,10 @@ async page => {
   await page.locator('input[name=collection][value="atlas-reference"]').check();await page.locator('#backend').selectOption('milvus');
   await fill({'#query':'Where are the Atlas commissioning checklists?'});await page.locator('#search-form button[type=submit]').click();
   await page.waitForFunction(()=>state.result&&!state.searching);await shot('13-search-results');
+  await page.locator('#allow-remote').check();await shot('25-search-model-routing');
   await open('#research');await page.locator('input[name=research-collection][value="atlas-reference"]').check();
   await fill({'#research-question':'Compare the Atlas commissioning requirements across the selected guides.'});await shot('14-deep-research-choice');
+  await page.locator('#research-web').check();await shot('24-web-research-opt-in');await page.locator('#research-web').uncheck();
   await open('#research-run/atlas-research');await page.waitForFunction(()=>workflowState.run?.status==='completed');await shot('20-research-report');
   await open('#analysis');await page.locator('#analysis-file').setInputFiles([{name:'Atlas-Operator-Guide.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nFictional upload preview.\n')}]);
   await page.locator('#analysis-captions').check();await fill({'#analysis-question':'Which checks are required before commissioning?'});await shot('21-document-analysis-upload');
@@ -65,5 +67,5 @@ async page => {
   await open('#admin');await page.waitForSelector('#admin-login');await fill({'#admin-username':'demo-admin'});await shot('18-admin-login');
   await page.evaluate(async()=>{await api('/api/session/login',{method:'POST',body:'{}'});await loadAdmin();});
   await page.waitForSelector('#admin-register-location');await fill({'#admin-location-alias':'atlas-briefings','#admin-location-path':'/source-roots/approved/atlas/briefings'});await shot('19-admin-locations');
-  return {screenshots:23,fictional:true,horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)};
+  return {screenshots:25,fictional:true,horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)};
 }

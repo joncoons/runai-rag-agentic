@@ -240,6 +240,11 @@ research:
 routing:
   enabled: false
   researchEnabled: false
+  searchEnabled: false
+  hosted:
+    enabled: false
+    secretName: ""
+    secretKey: NVIDIA_REMOTE_API_KEY
   image: ''
   configMap: rag-routing
   nodeSelector: {}

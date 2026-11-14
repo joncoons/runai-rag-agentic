@@ -1,3 +1,4 @@
+{{- if and .Values.routing.searchEnabled (not .Values.routing.enabled) }}{{ fail "routing.searchEnabled requires routing.enabled" }}{{ end -}}
 {{- if and .Values.routing.researchEnabled (not .Values.routing.enabled) }}{{ fail "routing.researchEnabled requires routing.enabled" }}{{ end -}}
 {{- if or .Values.application.enabled .Values.migrations.enabled }}
 {{- $root := . -}}
@@ -34,6 +35,10 @@
 {{- $secret := required "research.webSearch.secretName is required when web search is enabled" $root.Values.research.webSearch.secretName -}}
 {{- $env = append $env (dict "name" "TAVILY_API_KEY" "valueFrom" (dict "secretKeyRef" (dict "name" $secret "key" $root.Values.research.webSearch.secretKey))) -}}
 {{- end -}}
+{{- if and (eq $role "api") $root.Values.routing.searchEnabled -}}
+{{- $env = append $env (dict "name" "SEARCH_ROUTING_ENABLED" "value" "true") -}}
+{{- $env = append $env (dict "name" "SEARCH_ROUTING_CONFIG_FILE" "value" "/routing/search-client.json") -}}
+{{- end -}}
 {{- if and (eq $role "research") $root.Values.routing.researchEnabled -}}
 {{- $env = append $env (dict "name" "RESEARCH_ROUTING_ENABLED" "value" "true") -}}
 {{- $env = append $env (dict "name" "RESEARCH_ROUTING_CONFIG_FILE" "value" "/routing/research-client.json") -}}
@@ -51,7 +56,7 @@
 {{- range $filename := list "model-bindings.json" "model-contracts.json" "location-roots.json" -}}
 {{- $mounts = append $mounts (dict "name" "bindings" "mountPath" (printf "/app/config/%s" $filename) "subPath" $filename "readOnly" true) -}}
 {{- end -}}
-{{- if and (eq $role "research") $root.Values.routing.researchEnabled -}}
+{{- if or (and (eq $role "research") $root.Values.routing.researchEnabled) (and (eq $role "api") $root.Values.routing.searchEnabled) -}}
 {{- $mounts = append $mounts (dict "name" "routing-client" "mountPath" "/routing" "readOnly" true) -}}
 {{- $volumes = append $volumes (dict "name" "routing-client" "configMap" (dict "name" (required "Set routing.configMap" $root.Values.routing.configMap))) -}}
 {{- end -}}

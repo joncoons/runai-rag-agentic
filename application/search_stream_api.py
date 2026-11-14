@@ -14,7 +14,7 @@ def install_stream_routes(app,service_for):
         async def events():
             task=None
             try:
-                async with aclosing(service.stream_search(body.query,body.collection_ids,backend=body.backend,mode=body.mode)) as source:
+                async with aclosing(service.stream_search(body.query,body.collection_ids,backend=body.backend,mode=body.mode,**({'allow_remote':True} if body.allow_remote else {}))) as source:
                     try:
                         while True:
                             task=asyncio.create_task(anext(source))

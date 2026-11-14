@@ -1,0 +1,15 @@
+flowchart TB
+  U["Search query and selected collections"] --> E["Retrieve top 10 and rerank top 5"]
+  E --> C{"Remote inference explicitly allowed
+and complete input fits?"}
+  C -->|No| L["Local-only task route"]
+  C -->|Yes| R["Hosted-enabled task route"]
+  L --> J["One local task classification"]
+  R --> J
+  J --> S["Lightning: focused lookup"]
+  J --> M["Super: comparison and synthesis"]
+  J -->|"Only with permission"| G["Hosted GLM: demanding reasoning"]
+  S --> A["Pin selected model and stream answer"]
+  M --> A
+  G --> A
+  A --> O["Grounded answer, source links, model and timings"]
