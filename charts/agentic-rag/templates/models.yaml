@@ -6,6 +6,10 @@
 {{- $_ := set $values "GPU_CACHE_SUBPATH" $model.cacheSubPath -}}
 {{- $_ := set $values "MODEL_PROFILE" $model.profile -}}
 {{- $_ := set $values "GEMM_BACKEND" $model.gemmBackend -}}
+{{- $checkpointSubPath := default "" $model.checkpointSubPath -}}
+{{- $_ := set $values "MODEL_CHECKPOINT_SUBPATH" $checkpointSubPath -}}
+{{- $_ := set $values "MODEL_CHECKPOINT_PREFIX" (ternary (printf "%s/" $checkpointSubPath) "" (ne $checkpointSubPath "")) -}}
+{{- $_ := set $values "MODEL_SNAPSHOT" (default "" $model.modelSnapshot) -}}
 {{- $spec := include "rag.resolve" (dict "text" ($.Files.Get (printf "files/models/%s.json" $name)) "bindings" $values) | fromJson -}}
 {{- $_ := set $spec "schedulerName" $.Values.runai.schedulerName -}}
 {{- if $.Values.runai.gpuRuntimeClassName }}{{- $_ := set $spec "runtimeClassName" $.Values.runai.gpuRuntimeClassName -}}{{- end -}}

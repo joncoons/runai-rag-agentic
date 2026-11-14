@@ -39,3 +39,5 @@ The left navigation separates **Search**, **Deep research** and **Document analy
 Deep research can optionally include Tavily web evidence through a default-off per-job control. See [web-search setup](RUNAI_RUNBOOK.md#optional-tavily-web-research). No provider credential is exposed to the GUI or private document analysis.
 
 Optional [workload-specific routing](docs/WORKLOAD_ROUTING.md) provides task-based research phases and a Composite route for disposable coding harnesses through one CPU-only Switchyard service. Routing is disabled until the local model pair is qualified; ordinary search keeps its fixed streaming model.
+
+An optional [Lightning model and shared-GPU capacity example](docs/MODEL_CAPACITY.md) provides Run:ai fractions for embedding, Parse, Omni and Lightning while retaining a dedicated Super model. Checkpoint bytes and runtime caches are separate; model deployment and query-routing activation are independent.

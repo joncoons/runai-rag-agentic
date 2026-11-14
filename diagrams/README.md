@@ -2,6 +2,12 @@
 
 Click a diagram to open its full-size SVG. Labels use native SVG text; editable Mermaid sources are linked below each preview.
 
+## Fractional Blackwell model capacity
+
+[![Fractional Blackwell model capacity](blackwell-model-packing.svg)](blackwell-model-packing.svg)
+
+[Mermaid source](blackwell-model-packing.mmd) · [Full-size SVG](blackwell-model-packing.svg)
+
 ## Workload-specific model routing
 
 [![Workload-specific model routing](workload-model-routing.svg)](workload-model-routing.svg)

@@ -297,3 +297,7 @@ PostgreSQL checkpoints retain the opt-in, provider steps and excerpt evidence wi
 ## Optional workload-specific model routing
 
 The optional CPU-only Switchyard service supports task-based routing for research phases and Composite routing for an external disposable coding harness. Interactive search retains its fixed streaming model. Both Helm switches are off by default; qualify both model endpoints and routing quality before enabling them. See [routing behavior, rendering, qualification, Run:ai configuration and rollback](docs/WORKLOAD_ROUTING.md). The callable research-to-coding tool is a separate integration; deploying a router does not create that agent or grant sandbox administration.
+
+## Optional Lightning and shared Blackwell model packing
+
+The chart includes an optional `models.lightning` NIM with read-only checkpoint bytes and a GPU-specific writable runtime cache. See [fractional model capacity and checkpoint layout](docs/MODEL_CAPACITY.md) and the [10/10/40/40 overlay](deployment/helm/values-gpu1-packing.yaml). Qualify the selected `latest` image/profile on your hardware before enabling it. This overlay supplies model capacity; application routing is configured independently.

@@ -1,0 +1,25 @@
+flowchart TB
+  scheduler["Run:ai GPU sharing and placement"]
+  dedicated["Separate dedicated GPU"] --> super["Super VL — medium tier<br/>100% GPU reservation"]
+  shared["Example shared 96 GB Blackwell"]
+  scheduler --> dedicated
+  scheduler --> shared
+  shared --> embed["Embedding — 10%"]
+  shared --> parse["Parse — 10%"]
+  shared --> omni["Omni captions — 40%"]
+  shared --> lightning["Lightning — small tier<br/>40%"]
+  weights["Universal verified checkpoints<br/>Read-only model bytes"] --> embed
+  weights --> parse
+  weights --> omni
+  weights --> lightning
+  runtime["Writable runtime caches<br/>GPU / driver / image / profile / execution"] --> embed
+  runtime --> parse
+  runtime --> omni
+  runtime --> lightning
+  gate["Qualify inference, context,<br/>mixed load and lifecycle"]
+  super --> gate
+  embed --> gate
+  parse --> gate
+  omni --> gate
+  lightning --> gate
+  gate --> routing["Configure query routing separately"]

@@ -70,6 +70,25 @@ migrations:
   backoffLimit: 3
   activeDeadlineSeconds: 900
 models:
+  lightning:
+    enabled: false
+    gpuFraction: 0.4
+    checkpointClaim: REPLACE_LIGHTNING_CHECKPOINT_CACHE_PVC
+    checkpointSubPath: ''
+    modelSnapshot: REPLACE_LIGHTNING_MODEL_SNAPSHOT
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_SKU_SM_DRIVER_MODEL_IMAGE_CHECKPOINT_PRECISION_CONFIG
+    profile: REPLACE_COMPATIBLE_LIGHTNING_NVFP4_TP1_PROFILE
+    gemmBackend: auto
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: '1'
+        memory: 8Gi
+      limits:
+        memory: 64Gi
+    image: ''
+    extraEnv: []
   caption:
     enabled: false
     gpuFraction: 0.25

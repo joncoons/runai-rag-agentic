@@ -1,0 +1,32 @@
+# Optional overlay after values-models.yaml. Replace storage/profile/placement fields.
+# Example: one 96 GB Blackwell shared through Run:ai; dedicated Super is separate.
+models:
+  embed:
+    gpuFraction: 0.1
+    nodeSelector:
+      kubernetes.io/hostname: REPLACE_SHARED_GPU_NODE
+  parse:
+    gpuFraction: 0.1
+    nodeSelector:
+      kubernetes.io/hostname: REPLACE_SHARED_GPU_NODE
+  caption:
+    gpuFraction: 0.4
+    nodeSelector:
+      kubernetes.io/hostname: REPLACE_SHARED_GPU_NODE
+  lightning:
+    enabled: true
+    gpuFraction: 0.4
+    checkpointClaim: REPLACE_LIGHTNING_CHECKPOINT_CACHE_PVC
+    checkpointSubPath: ''
+    modelSnapshot: REPLACE_LIGHTNING_MODEL_SNAPSHOT
+    cacheClaim: REPLACE_GPU_CACHE_PVC
+    cacheSubPath: REPLACE_GPU_SKU_SM_DRIVER_LIGHTNING_IMAGE_WORKSPACE_PROFILE_CONFIG
+    profile: REPLACE_COMPATIBLE_LIGHTNING_NVFP4_TP1_PROFILE
+    nodeSelector:
+      kubernetes.io/hostname: REPLACE_SHARED_GPU_NODE
+    extraEnv:
+    - name: NGC_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: REPLACE_NGC_API_SECRET
+          key: NGC_API_KEY
