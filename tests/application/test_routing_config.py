@@ -29,3 +29,12 @@ class RoutingConfigTests(unittest.TestCase):
   workload=result['workspace'];self.assertEqual(workload['projectId'],'example-project');self.assertEqual(workload['name'],'rag-agentic-switchyard')
   body=json.dumps(workload);self.assertNotIn('POSTGRES_DSN',body);self.assertNotIn('must-not-copy',body);self.assertNotIn('gpu',json.dumps(workload['spec']['compute']).lower());self.assertFalse(workload['spec']['security']['hostNetwork'])
   self.assertEqual(result['configmap']['kind'],'ConfigMap');self.assertIn('routes.toml',result['configmap']['data']);self.assertRegex(result['configmap']['metadata']['name'],r'rag-agentic-routing-[a-f0-9]{12}$');self.assertEqual(result['service']['spec']['selector'],{'workloadName':'rag-agentic-switchyard'})
+
+class NativeYamlRouterTests(unittest.TestCase):
+ def test_exact_cpu_security_and_secret_reference_are_preserved(self):
+  spec=importlib.util.spec_from_file_location('routing_native_v2',ROOT/'deployment/routing/native.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+  base={'name':'rag-agentic-switchyard','projectId':'example-project','spec':{'image':'registry.example/router@sha256:'+'a'*64,'environmentVariables':[{'name':'NVIDIA_VISIBLE_DEVICES','value':'void'},{'name':'NVIDIA_REMOTE_API_KEY','secret':{'name':'provider','key':'NVIDIA_REMOTE_API_KEY'}}]}}
+  prepared={'workspace':base,'configmap':{'metadata':{'name':'routing-policy'}}}
+  result=m.render_v2(prepared,namespace='example-ns',project_name='example',node_selector={'kubernetes.io/hostname':'example-node'})
+  pod=result['manifest']['spec']['template']['spec'];self.assertFalse(pod['automountServiceAccountToken']);self.assertNotIn('clusterId',result['metadata']);self.assertEqual(result['metadata']['projectId'],'example-project')
+  c=pod['containers'][0];self.assertEqual(c['env'][1]['valueFrom']['secretKeyRef']['name'],'provider');self.assertFalse(any('gpu' in k for k in c['resources']['limits']));self.assertFalse(any('persistentVolumeClaim' in v for v in pod['volumes']))

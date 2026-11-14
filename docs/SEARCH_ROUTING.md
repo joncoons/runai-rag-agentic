@@ -25,9 +25,9 @@ python3 deployment/routing/render.py \
   --output local/routing
 ```
 
-Omit both hosted arguments for a local-only installation. The configured windows must be qualified against the actual serving profiles; they do not enlarge a model's capacity. Search has separate local-only and hosted-enabled routes. Its Super classifier uses a dedicated target/client with `enable_thinking=false`, preventing hidden reasoning from consuming the short routing-verdict budget while preserving the other workload policies.
+Omit both hosted arguments for a local-only installation. The configured windows must be qualified against the actual serving profiles; they do not enlarge a model's capacity. Search has separate local-only and hosted-enabled routes. The hosted policy identifies formal proofs, counterexamples and correctness across interacting failure modes as large-tier tasks. Model classification is a recommendation: boundary cases can select different local tiers, so calibration observations are recorded separately from connectivity/streaming success. Its Super classifier uses a dedicated target/client with `enable_thinking=false`, preventing hidden reasoning from consuming the short routing-verdict budget while preserving the other workload policies.
 
-Validate the rendered policy with the qualified Switchyard v0.3.0 image's `--dry-run`. Exercise all three tiers, per-query consent, complete-context rejection, source grounding, streaming, time to first content, concurrency, failure cleanup and native Run:ai lifecycle before activation. `deployment/routing/qualify_search_fixture.py` uses synthetic CPU endpoints and the real router binary. `qualify_search_live.py` runs bounded synthetic prompts against actual models; hosted testing requires explicit authorization and `NVIDIA_REMOTE_API_KEY` in the operator environment. Neither test loads source collections or records prompt text in its receipts.
+Validate the rendered policy with the qualified Switchyard v0.3.0 image's `--dry-run`. Exercise all three tiers, per-query consent, complete-context rejection, source grounding, streaming, time to first content, concurrency, failure cleanup and native Run:ai lifecycle before activation. `deployment/routing/qualify_search_fixture.py` uses synthetic CPU endpoints and the real router binary. `qualify_search_live.py` runs bounded synthetic prompts against actual models; hosted testing requires explicit authorization and `NVIDIA_REMOTE_API_KEY` in the operator environment. Neither test loads source collections or records prompt text in its receipts. The live helper records expected/selected-tier matches separately from transport success. Its provider-connectivity passthrough alias is confined to the isolated test configuration and is never added to the production policy.
 
 Create a versioned ConfigMap containing `routes.toml`, `research-client.json` and `search-client.json`. Provision the provider key separately as a namespace-local Secret. Never put its value in Helm values, commands, Git or client config.
 
@@ -51,3 +51,27 @@ For native workspaces, `deployment/routing/native.py --hosted-secret HOSTED_PROV
 ## Recovery
 
 Disable `routing.searchEnabled` (or `SEARCH_ROUTING_ENABLED`) to return ordinary Search to its configured fixed model. Keep remote permission false until the hosted provider is qualified. Restore the previous immutable API image and versioned configuration if needed. Preserve model workloads, source records, VDB indexes, caches and in-flight research checkpoints. Do not replace a policy used by a checkpointed research job as an incidental Search rollback.
+
+## Native YAML lifecycle
+
+For a Run:ai-managed Deployment with exact pod security, prepare a Via YAML request:
+
+```bash
+python3 deployment/routing/native.py \
+  --base-request local/native-api-request.json \
+  --config-directory local/routing \
+  --image REGISTRY/SWITCHYARD_IMAGE@sha256:QUALIFIED_DIGEST \
+  --namespace APP_NAMESPACE --project-name RUNAI_PROJECT \
+  --hosted-secret HOSTED_PROVIDER_SECRET --via-yaml \
+  --output local/native-router.json
+```
+
+The `native_v2` request preserves CPU-only resources, disabled service-account token mounting, a read-only root filesystem and a Secret reference for the provider. It never submits resources. Register it through the installed Run:ai Via YAML control plane in the intended project; verify admission and ownership before connecting consumers. The legacy workspace variant requires its separately documented token-mount admission control.
+
+Some installed Run:ai releases reject bulk Stop for Via YAML Deployment workloads. Use the Run:ai YAML editor to set `spec.replicas` to zero and back to one, and verify pod release/recreation and readiness. Its logical desired phase may stay Running while replicas are zero. Do not substitute phase visibility for a lifecycle check.
+
+## Collection reporting on constrained PostgreSQL
+
+A small PostgreSQL shared-memory mount can reject parallel status queries. Diagnose the actual plan first; do not change ingestion semantics or global database settings as a routing workaround. If planner settings are needed, qualify them on a fresh API connection and compare complete results under a read-only consistent snapshot. Driver prepared-plan reuse can invalidate a timing comparison unless the changed settings precede preparation.
+
+An API-specific `POSTGRES_DSN` Secret can carry qualified connection parameters such as `enable_nestloop=off`, `enable_parallel_hash=off` and `jit=off`; these are installation-specific tuning options, not universal defaults. Keep the shared runtime Secret and other workers unchanged. Record the prior Secret reference for rollback. Changing planner settings never authorizes dropping provenance checks or omitting current collection state.
