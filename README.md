@@ -41,3 +41,5 @@ Deep research can optionally include Tavily web evidence through a default-off p
 Optional [workload-specific routing](docs/WORKLOAD_ROUTING.md) provides task-based research phases and a Composite route for disposable coding harnesses through one CPU-only Switchyard service. Routing is disabled until the local model pair is qualified; ordinary search keeps its fixed streaming model.
 
 [Three-model Search and remote-inference controls](docs/SEARCH_ROUTING.md) · [Search routing diagram](diagrams/search-model-routing.svg)
+
+An optional [Lightning model and shared-GPU capacity example](docs/MODEL_CAPACITY.md) provides Run:ai fractions for embedding, Parse, Omni and Lightning while retaining a dedicated Super model. Checkpoint bytes and runtime caches are separate; model deployment and query-routing activation are independent.

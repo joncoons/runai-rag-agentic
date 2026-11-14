@@ -301,3 +301,7 @@ The optional CPU-only Switchyard service supports task-based routing for researc
 Optional Search routing: see [three-model configuration, consent, qualification and rollback](docs/SEARCH_ROUTING.md). Keep it disabled until your model endpoints and Run:ai lifecycle controls pass acceptance.
 
 For Via YAML Deployment routers/models, use the installed lifecycle control verified in [Search routing](docs/SEARCH_ROUTING.md#native-yaml-lifecycle); bulk Stopped phase may be unsupported. Qualify actual pod release and readiness. Connection-pool planner tuning, if required by measured collection-reporting failures, belongs in an API-only runtime Secret rather than a shared/global database change.
+
+## Optional Lightning and shared Blackwell model packing
+
+The chart includes an optional `models.lightning` NIM with read-only checkpoint bytes and a GPU-specific writable runtime cache. See [fractional model capacity and checkpoint layout](docs/MODEL_CAPACITY.md) and the [10/10/40/40 overlay](deployment/helm/values-gpu1-packing.yaml). Qualify the selected `latest` image/profile on your hardware before enabling it. This overlay supplies model capacity; application routing is configured independently.

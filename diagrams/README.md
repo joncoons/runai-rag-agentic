@@ -2,6 +2,12 @@
 
 Click a diagram to open its full-size SVG. Labels use native SVG text; editable Mermaid sources are linked below each preview.
 
+## Blackwell model packing
+
+[![Blackwell model packing](blackwell-model-packing.svg)](blackwell-model-packing.svg)
+
+[Mermaid source](blackwell-model-packing.mmd) · [Full-size SVG](blackwell-model-packing.svg)
+
 ## Three-model Search
 
 [![Three-model Search](search-model-routing.svg)](search-model-routing.svg)

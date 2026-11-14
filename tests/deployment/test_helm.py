@@ -110,16 +110,22 @@ class HelmContracts(unittest.TestCase):
  def enabled_models(self):
   v=self.values()
   for name,m in v['models'].items():
-   m.update(enabled=True,checkpointClaim='checkpoint',cacheClaim='cache',cacheSubPath='sku/sm/driver/model/revision',profile='a'*64,gemmBackend='cutlass-nvfp4-sm120')
+   m.update(enabled=True,checkpointClaim='checkpoint',cacheClaim='cache',cacheSubPath='sku/sm/driver/model/revision',profile='a'*64,gemmBackend='cutlass-nvfp4-sm120',modelSnapshot='hf-validation',checkpointSubPath='validated/lightning')
   return v
  def test_all_models_use_runai_and_separate_checkpoint_cache(self):
-  docs=self.render(self.enabled_models());models=[d for d in docs if d['kind']=='Deployment' and '-model-' in d['metadata']['name']];self.assertEqual(len(models),9)
+  docs=self.render(self.enabled_models());models=[d for d in docs if d['kind']=='Deployment' and '-model-' in d['metadata']['name']];self.assertEqual(len(models),10)
   for d in models:
    pod=d['spec']['template'];c=pod['spec']['containers'][0];self.assertTrue(c['image'].endswith(':latest'));self.assertEqual(c['imagePullPolicy'],'Always')
    self.assertEqual(pod['spec']['schedulerName'],'runai-scheduler');self.assertEqual(c['readinessProbe']['httpGet']['path'],'/v1/health/ready')
    mounts=c['volumeMounts'];self.assertTrue(any(m['name']=='checkpoint' for m in mounts));self.assertTrue(any(m['name']=='runtime-cache' and 'subPath' in m for m in mounts))
    if d['metadata']['name'].endswith('-llm'):self.assertEqual(c['resources']['limits']['nvidia.com/gpu'],1)
-   else:self.assertEqual(pod['metadata']['annotations']['gpu-fraction'],'0.25');self.assertNotIn('nvidia.com/gpu',c['resources'].get('limits',{}))
+   else:self.assertEqual(pod['metadata']['annotations']['gpu-fraction'],'0.4' if d['metadata']['name'].endswith('-lightning') else '0.25');self.assertNotIn('nvidia.com/gpu',c['resources'].get('limits',{}))
+ def test_lightning_has_readonly_checkpoint_bytes_and_explicit_capacity_example(self):
+  v=self.enabled_models();v['models']['lightning']['gpuFraction']=.4
+  docs=self.render(v);d=next(x for x in docs if x['kind']=='Deployment' and x['metadata']['name']=='rag-model-lightning');pod=d['spec']['template'];c=pod['spec']['containers'][0]
+  self.assertEqual(pod['metadata']['annotations']['gpu-fraction'],'0.4');self.assertFalse(pod['spec']['automountServiceAccountToken']);self.assertIn('262144',c['args'])
+  protected=[m for m in c['volumeMounts'] if m['name']=='checkpoint'];self.assertTrue(all(m['readOnly'] for m in protected));self.assertTrue(any('/blobs' in m['mountPath'] for m in protected));self.assertTrue(any('snapshots/hf-validation' in m['mountPath'] for m in protected))
+  self.assertIn('prepare-runtime-cache',[x['name'] for x in pod['spec']['initContainers']])
  def test_invalid_fraction_is_rejected(self):
   for value in (0,-0.5,1.1):
    v=self.enabled_models();v['models']['embed']['gpuFraction']=value;self.render(v,success=False)

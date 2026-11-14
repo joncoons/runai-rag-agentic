@@ -1,0 +1,170 @@
+{
+  "automountServiceAccountToken": false,
+  "securityContext": {
+    "runAsUser": 1000,
+    "runAsGroup": 1000,
+    "fsGroup": 1000
+  },
+  "terminationGracePeriodSeconds": 120,
+  "initContainers": [
+    {
+      "name": "prepare-runtime-cache",
+      "image": "busybox:1.36.1",
+      "command": [
+        "sh",
+        "-ec",
+        "mkdir -p /runtime/${GPU_CACHE_SUBPATH}/sdk/ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/refs /runtime/${GPU_CACHE_SUBPATH}/sdk/ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/blobs /runtime/${GPU_CACHE_SUBPATH}/sdk/ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/snapshots/${MODEL_SNAPSHOT}\ncp /checkpoint/ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/refs/${MODEL_SNAPSHOT} /runtime/${GPU_CACHE_SUBPATH}/sdk/ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/refs/${MODEL_SNAPSHOT}"
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+        },
+        "limits": {
+          "cpu": "100m",
+          "memory": "64Mi"
+        }
+      },
+      "volumeMounts": [
+        {
+          "name": "runtime-cache",
+          "mountPath": "/runtime"
+        },
+        {
+          "name": "checkpoint",
+          "mountPath": "/checkpoint",
+          "subPath": "${MODEL_CHECKPOINT_SUBPATH}",
+          "readOnly": true
+        }
+      ]
+    }
+  ],
+  "containers": [
+    {
+      "name": "application",
+      "image": "nvcr.io/nim/nvidia/nemotron-3.5-lightning-30b-a3b:latest",
+      "imagePullPolicy": "Always",
+      "command": [
+        "/opt/nim/start_server.sh"
+      ],
+      "args": [
+        "--max-model-len",
+        "262144",
+        "--max-num-seqs",
+        "1",
+        "--gpu-memory-utilization",
+        "0.90",
+        "--enable-auto-tool-choice",
+        "--tool-call-parser",
+        "qwen3_coder",
+        "--reasoning-parser",
+        "nemotron_v3"
+      ],
+      "env": [
+        {
+          "name": "NIM_MODEL_PROFILE",
+          "value": "${MODEL_PROFILE}"
+        },
+        {
+          "name": "NIM_SERVED_MODEL_NAME",
+          "value": "nvidia/nemotron-3.5-lightning"
+        },
+        {
+          "name": "NIM_CACHE_PATH",
+          "value": "/opt/cache/sdk"
+        },
+        {
+          "name": "NIM_MAX_MODEL_LEN",
+          "value": "262144"
+        },
+        {
+          "name": "CUDA_CACHE_PATH",
+          "value": "/opt/cache/cuda"
+        },
+        {
+          "name": "TRITON_CACHE_DIR",
+          "value": "/opt/cache/triton"
+        },
+        {
+          "name": "TORCHINDUCTOR_CACHE_DIR",
+          "value": "/opt/cache/torchinductor"
+        },
+        {
+          "name": "VLLM_CACHE_ROOT",
+          "value": "/opt/cache/vllm"
+        },
+        {
+          "name": "OMP_NUM_THREADS",
+          "value": "4"
+        }
+      ],
+      "resources": {
+        "requests": {
+          "cpu": "1",
+          "memory": "8Gi"
+        },
+        "limits": {
+          "cpu": "8",
+          "memory": "64Gi"
+        }
+      },
+      "ports": [
+        {
+          "name": "http",
+          "containerPort": 8000
+        }
+      ],
+      "volumeMounts": [
+        {
+          "name": "runtime-cache",
+          "mountPath": "/opt/cache",
+          "subPath": "${GPU_CACHE_SUBPATH}"
+        },
+        {
+          "name": "checkpoint",
+          "mountPath": "/checkpoint",
+          "subPath": "${MODEL_CHECKPOINT_SUBPATH}",
+          "readOnly": true
+        },
+        {
+          "name": "shm",
+          "mountPath": "/dev/shm"
+        },
+        {
+          "name": "checkpoint",
+          "mountPath": "/opt/cache/sdk/ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/blobs",
+          "subPath": "${MODEL_CHECKPOINT_PREFIX}ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/blobs",
+          "readOnly": true
+        },
+        {
+          "name": "checkpoint",
+          "mountPath": "/opt/cache/sdk/ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/snapshots/${MODEL_SNAPSHOT}",
+          "subPath": "${MODEL_CHECKPOINT_PREFIX}ngc/hub/models--nim--nvidia--nemotron-3.5-lightning/snapshots/${MODEL_SNAPSHOT}",
+          "readOnly": true
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "checkpoint",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CHECKPOINT_PVC}",
+        "readOnly": true
+      }
+    },
+    {
+      "name": "runtime-cache",
+      "persistentVolumeClaim": {
+        "claimName": "${MODEL_CACHE_PVC}"
+      }
+    },
+    {
+      "name": "shm",
+      "emptyDir": {
+        "medium": "Memory",
+        "sizeLimit": "16Gi"
+      }
+    }
+  ]
+}
